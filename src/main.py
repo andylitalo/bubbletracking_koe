@@ -88,6 +88,13 @@ def main():
             print('{0:s} already exists. Terminating analysis.'.format(data_path))
             return
 
+    # loads mask data; user creates new mask by clicking if none available
+    first_frame = vid.load_frame(vid_path, 0, vert_flip=False, bokeh=False)
+    flow_dir, mask_data = ui.click_sheath_flow(first_frame,
+                                    vid_path[:-4]+'_mask.pkl', check=check)
+    # computes minimum and maximum rows for bubble tracking computation
+    row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
+
     # gets background for image subtraction later on
     data_existing = glob.glob(os.path.join(data_dir, 'f_*.pkl'))
     if len(data_existing) > 0 and use_prev_bkgd:
@@ -98,12 +105,6 @@ def main():
     else:
         # computes background with median filtering
         bkgd = improc.compute_bkgd_med(vid_path, num_frames=num_frames_for_bkgd)
-
-    # loads mask data; user creates new mask by clicking if none available
-    flow_dir, mask_data = ui.click_sheath_flow(bkgd,
-                                    vid_path[:-4]+'_mask.pkl', check=check)
-    # computes minimum and maximum rows for bubble tracking computation
-    row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
 
     # computes pressure drop [Pa], inner stream radius [m], and max velocity
     #  [m/s] for Poiseuille sheath flow
