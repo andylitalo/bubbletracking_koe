@@ -29,8 +29,8 @@ import skimage.filters
 import scipy.ndimage
 
 # imports custom image processing libraries
-import vid
-import mask
+import cvimproc.vid as vid
+import cvimproc.mask as mask
 
 # imports general custom libraries
 import genl.fn as fn
