@@ -19,8 +19,8 @@ import time
 # imports custom libraries
 import genl.fn as fn
 import cvimproc.improc as improc
-import cvimproc.mask as mask
-import plot.improc as plot
+import mask
+import plot.improc as pltim
 
 
 
@@ -159,7 +159,7 @@ def load_frame(vid_path, num, vert_flip=True, bokeh=True):
     cap = cv2.VideoCapture(vid_path)
     frame = read_frame(cap, num)
     if bokeh:
-        frame = plot.bokehfy(frame)
+        frame = pltim.bokehfy(frame)
 
     return frame, cap
 
@@ -181,7 +181,7 @@ def show_frame(vid_path, start_frame, pix_per_um, vert_flip=True,
     # width is the width of the figure box
     """
     frame, cap = load_frame(vid_path, start_frame)
-    p, im = plot.format_frame(frame, pix_per_um, fig_size_red, brightness=brightness)
+    p, im = pltim.format_frame(frame, pix_per_um, fig_size_red, brightness=brightness)
     if show_fig:
         show(p, notebook_handle=True)
 
@@ -211,7 +211,7 @@ def view_video(vid_path, start_frame, pix_per_um, time_sleep=0.3,
                                     fontFace=0, fontScale=2, color=white,
                                     thickness=3)
         # formats frame for viewing
-        frame = improc.adjust_brightness(plot.bokehfy(
+        frame = improc.adjust_brightness(pltim.bokehfy(
                 frame, vert_flip=vert_flip), brightness)
         # displays frame
         im.data_source.data['image']=[frame]

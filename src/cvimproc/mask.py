@@ -21,7 +21,7 @@ import pickle as pkl
 
 # imports custom libraries
 import genl.geo as geo
-import cvimproc.ui as ui
+import ui
 
 
 

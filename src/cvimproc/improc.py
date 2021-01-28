@@ -29,8 +29,8 @@ import skimage.filters
 import scipy.ndimage
 
 # imports custom image processing libraries
-import cvimproc.vid as vid
-import cvimproc.mask as mask
+import vid
+import mask
 
 # imports general custom libraries
 import genl.fn as fn
@@ -38,7 +38,7 @@ import genl.geo as geo
 from genl.conversions import *
 
 # imports custom classes (with reload clauses)
-from classes import Bubble, FileVideoStream
+from classes.classes import Bubble, FileVideoStream
 
 ############################# METHOD DEFINITIONS ##############################
 def adjust_brightness(im, brightness, sat=255):

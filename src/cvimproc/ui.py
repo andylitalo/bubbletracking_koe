@@ -19,10 +19,10 @@ from tkinter import messagebox
 
 # imports custom libraries
 import plot.genl as pltg
-import cvimproc.vid as vid
+import vid
 import genl.geo as geo
-import cvimproc.mask as mask
-import cvimproc.improc as improc
+import mask
+import improc
 
 
 
