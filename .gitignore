@@ -2,3 +2,4 @@
 src/libs/
 *.mp4
 *.pyc
+*.pkl

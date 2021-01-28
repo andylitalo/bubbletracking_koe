@@ -8,7 +8,6 @@ vid.py contains functions useful for manipulating videos.
 
 import numpy as np
 import cv2
-import scipy.ndimage
 from bokeh.io import show, push_notebook
 import time
 
