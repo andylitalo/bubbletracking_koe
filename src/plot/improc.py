@@ -23,8 +23,8 @@ from bokeh.models.annotations import Title
 from bokeh.layouts import gridplot
 
 # imports custom libraries
-import improc.improc as improc
-import improc.vid as vid
+import cvimproc.improc as improc
+import cvimproc.vid as vid
 
 
 def bokehfy(im, vert_flip=True):

@@ -16,11 +16,11 @@ import glob
 # imports custom libraries
 # from libs
 import genl.fn as fn
-import improc.improc as improc
-import improc.mask as mask
-import improc.ui as ui
+import cvimproc.improc as improc
+import cvimproc.mask as mask
+import cvimproc.ui as ui
 import genl.flow as flow
-import improc.vid as vid
+import cvimproc.vid as vid
 import genl.readin as readin
 
 # global conversions
