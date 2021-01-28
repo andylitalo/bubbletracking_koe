@@ -32,7 +32,7 @@ import readin
 from conversions import *
 
 # GLOBAL VARIABLES
-input_folder = '..\\'
+input_folder = '../input/'
 
 
 def main():
@@ -67,7 +67,7 @@ def main():
     Q_o = uLmin_2_m3s*vid_params['Q_o'] # outer stream flow rate [m^3/s]
     mag = vid_params['mag'] # magnification of objective (used for pix->um conv)
     pix_per_um = pix_per_um_dict[mag] # gets appropriate conversion for magnification
-    
+
     # defines directory to video data and figures
     vid_dir = vid_subfolder + os.path.join(vid_name[:-4], input_name)
     data_dir = data_folder + vid_dir
