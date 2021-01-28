@@ -19,6 +19,16 @@ import time
 # imports image-processing-specific libraries
 import cv2
 
+# TODO: remove these libraries and replace calls with opencv
+import skimage.morphology
+import sklearn.cluster
+import skimage.measure
+import skimage.color
+import skimage.segmentation
+import skimage.feature
+import skimage.filters
+import scipy.ndimage
+
 # imports custom image processing libraries
 import vid
 import mask

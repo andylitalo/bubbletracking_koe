@@ -9,12 +9,16 @@ only require it. These functions are largely obsolte and are kept
 in this document so libraries with legacy code can still run.
 """
 
+import sys
+
 import numpy as np
 import pandas as pd
 import cv2
 import scipy.ndimage
 import pickle as pkl
 
+# directs system to general libraries
+sys.path.append('../genl/')
 # imports custom libraries
 import geo
 import ui
