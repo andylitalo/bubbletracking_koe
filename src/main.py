@@ -57,10 +57,7 @@ def main():
     # defines filepath to video
     vid_path = expmt_folder + vid_subfolder + vid_name
     # checks that video has the requested frames
-    n_frames = vid.count_frames(vid_path)
-    if end > n_frames:
-        print('{0:d}th frame requested, but only {1:d} frames available.' \
-                .format(end, n_frames))
+    if not vid.check_frames(vid_path, end):
         print('Terminating analysis. Please enter valid frame range next time.')
         return
 
@@ -70,6 +67,7 @@ def main():
     Q_o = uLmin_2_m3s*vid_params['Q_o'] # outer stream flow rate [m^3/s]
     mag = vid_params['mag'] # magnification of objective (used for pix->um conv)
     pix_per_um = pix_per_um_dict[mag] # gets appropriate conversion for magnification
+    
     # defines directory to video data and figures
     vid_dir = vid_subfolder + os.path.join(vid_name[:-4], input_name)
     data_dir = data_folder + vid_dir
