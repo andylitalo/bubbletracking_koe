@@ -6,9 +6,6 @@ nucleation and growth in sheath flow.
 @date October 19, 2020
 """
 
-# adds folder of libraries to path
-import sys
-sys.path.append('libs/')
 
 # imports standard libraries
 import pickle as pkl
@@ -18,18 +15,16 @@ import glob
 
 # imports custom libraries
 # from libs
-import fn
-import improc
-import mask
-import ui
-import flow
-import vid
-
-# from project
-import readin
+import genl.fn as fn
+import improc.improc as improc
+import improc.mask as mask
+import improc.ui as ui
+import genl.flow as flow
+import improc.vid as vid
+import genl.readin as readin
 
 # global conversions
-from conversions import *
+from genl.conversions import *
 
 # GLOBAL VARIABLES
 input_folder = '../input/'
