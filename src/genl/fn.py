@@ -97,7 +97,7 @@ def parse_vid_folder(vid_folder):
     # first extracts direct folder for video if others included in path
     vid_folder_list = split_folders(vid_folder)
     vid_folder = vid_folder_list[-1]
-    raw = vid_folder.strip('\\')
+    raw = vid_folder.strip(os.path.sep)
     date, p_sat_str = raw.split('_')
     p_sat = int(''.join([c for c in p_sat_str if c.isdigit()]))
     p_sat_units = ''.join([c for c in p_sat_str if not c.isdigit()])
@@ -105,7 +105,7 @@ def parse_vid_folder(vid_folder):
     return date, p_sat, p_sat_units
 
 def parse_vid_path(vid_path):
-    i_start = vid_path.rfind('\\')
+    i_start = vid_path.rfind(os.path.sep)
     vid_file = vid_path[i_start+1:]
     # cuts out extension and splits by underscores
     tokens = vid_file[:-4].split('_')
@@ -184,7 +184,7 @@ def remove_nans(arr):
     not_nan = [i for i in range(len(arr)) if not np.isnan(arr[i])]
 
     return not_nan, arr[not_nan]
-    
+
 
 def split_folders(path):
     """Suggested on http://nicks-liquid-soapbox.blogspot.com/2011/03/

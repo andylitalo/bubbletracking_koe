@@ -8,10 +8,6 @@ defined in improc.py.
 @author: Andy
 """
 
-# directs system to source directory
-import sys
-sys.path.append('../')
-
 # imports standard libs
 import numpy as np
 import cv2
@@ -23,8 +19,7 @@ from bokeh.models.annotations import Title
 from bokeh.layouts import gridplot
 
 # imports custom libraries
-import cvimproc.improc as improc
-import cvimproc.vid as vid
+import cvimproc.basic as basic
 
 
 def bokehfy(im, vert_flip=True):
@@ -69,7 +64,7 @@ def bokehfy(im, vert_flip=True):
 
 
 def format_frame(frame, pix_per_um, fig_size_red, brightness=1.0, title=None):
-    frame = improc.adjust_brightness(frame, brightness)
+    frame = basic.adjust_brightness(frame, brightness)
     width = frame.shape[1]
     height= frame.shape[0]
     width_um = int(width / pix_per_um)
@@ -156,15 +151,15 @@ def six_frame_eda(vid_filepath, f, params, highlight_method, pix_per_um,
                   fig_size_red, tag=''):
     """Shows six steps in the image-processing of a frame."""
     # loads current frame for image subtraction
-    frame, _ = vid.load_frame(vid_filepath, f, bokeh=False)
+    frame, _ = basic.load_frame(vid_filepath, f, bokeh=False)
     # converts to HSV format
-    val = improc.get_val_channel(frame)
+    val = basic.get_val_channel(frame)
     # highlights bubbles and shows each step in the process (6 total)
     all_steps = highlight_method(val, *params, ret_all_steps=True)
     im_diff, thresh_bw, closed_bw, bubble_bw, bubble = all_steps
 
     # collects images to display
-    im_list = [bokehfy(val), bokehfy(improc.adjust_brightness(im_diff, 3.0)),
+    im_list = [bokehfy(val), bokehfy(basic.adjust_brightness(im_diff, 3.0)),
                bokehfy(thresh_bw), bokehfy(closed_bw),
               bokehfy(bubble_bw), bokehfy(bubble)]
     title_list = ['Frame {0:d}: Value Channel (HSV)'.format(f),

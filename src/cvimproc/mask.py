@@ -8,9 +8,6 @@ The mask_im function is also in improc.py since most functions
 only require it. These functions are largely obsolte and are kept
 in this document so libraries with legacy code can still run.
 """
-# directs system to source directory
-import sys
-sys.path.append('../')
 
 import numpy as np
 import pandas as pd
@@ -21,7 +18,6 @@ import pickle as pkl
 
 # imports custom libraries
 import genl.geo as geo
-import ui
 
 
 
@@ -45,12 +41,10 @@ def create_polygon_mask(image,points):
     return mask, points
 
 
-def create_polygonal_mask_data(im, maskFile, save=True, msg='click vertices'):
+def create_polygonal_mask_data(im, vertices, mask_file, save=True):
     """
     create mask for an image and save as pickle file
     """
-    # asks user to click vertices
-    vertices = ui.define_outer_edge(im,'polygon',message=msg)
     # creates mask and points along boundary
     mask, boundary = create_polygon_mask(im, vertices)
     # store mask data
@@ -61,28 +55,23 @@ def create_polygonal_mask_data(im, maskFile, save=True, msg='click vertices'):
 
     # save new mask
     if save:
-        with open(maskFile,'wb') as f:
+        with open(mask_file,'wb') as f:
             pkl.dump(mask_data, f)
 
     return mask_data
 
 
-def create_rect_mask_data(im,maskFile):
+def create_rect_mask_data(im, vertices, mask_file):
     """
     create mask for an image and save as pickle file
     """
-    maskMsg = "Click opposing corners of rectangle outlining desired region."
-    # obtain vertices of mask from clicks; mask vertices are in clockwise order
-    # starting from upper left corner
-    maskVertices = ui.define_outer_edge(im,'rectangle',
-                                         message=maskMsg)
-    xMin = maskVertices[0][0]
-    xMax = maskVertices[1][0]
-    yMin = maskVertices[0][1]
-    yMax = maskVertices[2][1]
+    xMin = vertices[0][0]
+    xMax = vertices[1][0]
+    yMin = vertices[0][1]
+    yMax = vertices[2][1]
     xyMinMax = np.array([xMin, xMax, yMin, yMax])
     # create mask from vertices
-    mask, maskPts = create_polygon_mask(im, maskVertices)
+    mask, maskPts = create_polygon_mask(im, vertices)
     print(mask)
     # store mask data
     mask_data = {}

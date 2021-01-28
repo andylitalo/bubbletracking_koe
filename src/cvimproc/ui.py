@@ -5,10 +5,6 @@ Created on Wed May 20 16:52:03 2015
 @author: John
 """
 
-# directs system to source directory
-import sys
-sys.path.append('../')
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle as pkl
@@ -18,11 +14,10 @@ import cv2
 from tkinter import messagebox
 
 # imports custom libraries
-import plot.genl as pltg
-import vid
+import genl.pltg as pltg
 import genl.geo as geo
-import mask
-import improc
+import cvimproc.mask as mask
+import cvimproc.improc as improc
 
 
 
@@ -59,9 +54,11 @@ def click_flow(im, mask_path, region='ROI', save=True, check=False):
         Contains coordinates of individual points (x,y) defining the vertices of
         the mask and the (M x N) array of the mask.
     """
-    mask_data = get_polygonal_mask_data(im, mask_path, check=check, save=save,
-                    msg='Click 4 vertices defining {0:s}.'.format(region) + \
-                    ' First 2 clicks should be along flow direction.')
+    msg = 'Click 4 vertices defining {0:s}.'.format(region) + \
+                ' First 2 clicks should be along flow direction.'
+    vertices = define_outer_edge(im, 'polygon', message=msg)
+    mask_data = get_polygonal_mask_data(im, vertices, mask_path, check=check,
+                                                save=save)
     verts = mask_data['vertices']
     # computes coordinates of flow vector from first two clicks
     dx = verts[1][0] - verts[0][0]
@@ -337,7 +334,9 @@ def define_outer_edge(image,shapeType,message=''):
         return xyVals
 
 
-def get_rect_mask_data(im,maskFile,check=False, yes=6):
+def get_rect_mask_data(im, maskFile, check=False, yes=6,
+                        msg="Click opposing corners of rectangle ' + \
+                        'outlining desired region."):
     """
     Shows user masks overlayed on given image and asks through a dialog box
     if they are acceptable. Returns True for 'yes' and False for 'no'.
@@ -347,7 +346,9 @@ def get_rect_mask_data(im,maskFile,check=False, yes=6):
             maskData = pkl.load(f)
     except:
         print('Mask file not found, please create it now.')
-        maskData = mask.create_rect_mask_data(im,maskFile)
+        # asks user to click vertices
+        vertices = define_outer_edge(im, 'rectangle', message=msg)
+        maskData = mask.create_rect_mask_data(im, vertices, mask_file)
 
     while check:
         plt.figure('Evaluate accuracy of predrawn masks for your video')
@@ -364,7 +365,10 @@ def get_rect_mask_data(im,maskFile,check=False, yes=6):
 
         else: # 7 means no
             print('Existing mask rejected, please create new one now.')
-            maskData = mask.create_rect_mask_data(im,maskFile)
+            msg = "Click opposing corners of rectangle outlining desired region."
+            # asks user to click vertices
+            vertices = define_outer_edge(im, 'rectangle', message=msg)
+            maskData = mask.create_rect_mask_data(im, vertices, mask_file)
 
     plt.close()
 
@@ -382,8 +386,9 @@ def get_polygonal_mask_data(im, mask_file, check=False, save=True,
             mask_data = pkl.load(f)
     except:
         print('Mask file not found, please create it now.')
-        mask_data = mask.create_polygonal_mask_data(im, mask_file, save=save,
-                                                                    msg=msg)
+        vertices = define_outer_edge(im, 'polygon', message=msg)
+        mask_data = mask.create_polygonal_mask_data(im, vertices, mask_file,
+                                                                save=save)
 
     while check:
         plt.figure('Evaluate accuracy of predrawn masks for your video')
@@ -403,7 +408,8 @@ def get_polygonal_mask_data(im, mask_file, check=False, save=True,
 
         else:
             print('Existing mask rejected, please create new one now.')
-            mask_data = mask.create_polygonal_mask_data(im, mask_file, msg=msg)
+            vertices = define_outer_edge(im, 'polygon', message=msg)
+            mask_data = mask.create_polygonal_mask_data(im, vertices, mask_file)
 
     plt.close()
 
@@ -416,7 +422,7 @@ def get_mask_data(maskFile,v,hMatrix=None,check=False):
     if they are acceptable. Returns True for 'yes' and False for 'no'.
     """
     # Parse input parameters
-    image = vid.extract_frame(v,1,hMatrix=hMatrix)
+    image = basic.extract_frame(v,1,hMatrix=hMatrix)
     try:
         with open(maskFile) as f:
             maskData = pkl.load(f)

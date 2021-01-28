@@ -20,7 +20,7 @@ import cvimproc.improc as improc
 import cvimproc.mask as mask
 import cvimproc.ui as ui
 import genl.flow as flow
-import cvimproc.vid as vid
+import cvimproc.basic as basic
 import genl.readin as readin
 
 # global conversions
@@ -52,7 +52,7 @@ def main():
     # defines filepath to video
     vid_path = expmt_folder + vid_subfolder + vid_name
     # checks that video has the requested frames
-    if not vid.check_frames(vid_path, end):
+    if not basic.check_frames(vid_path, end):
         print('Terminating analysis. Please enter valid frame range next time.')
         return
 
@@ -82,7 +82,7 @@ def main():
             return
 
     # loads mask data; user creates new mask by clicking if none available
-    first_frame = vid.load_frame(vid_path, 0, vert_flip=False, bokeh=False)
+    first_frame = basic.load_frame(vid_path, 0)
     flow_dir, mask_data = ui.click_sheath_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
     # computes minimum and maximum rows for bubble tracking computation

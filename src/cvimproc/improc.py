@@ -3,11 +3,6 @@ improc.py contains definitions of methods for image-processing
 using OpenCV EXCLUSIVELY.
 """
 
-import sys
-# directs system to source folder
-sys.path.append('../')
-
-
 # imports standard libraries
 import numpy as np
 import matplotlib.pyplot as plt
@@ -29,58 +24,19 @@ import skimage.filters
 import scipy.ndimage
 
 # imports custom image processing libraries
-import vid
-import mask
+import cvimproc.mask as mask
+import cvimproc.basic as basic
 
 # imports general custom libraries
 import genl.fn as fn
 import genl.geo as geo
 from genl.conversions import *
+import cvimproc.pltim as pltim
 
 # imports custom classes (with reload clauses)
 from classes.classes import Bubble, FileVideoStream
 
 ############################# METHOD DEFINITIONS ##############################
-def adjust_brightness(im, brightness, sat=255):
-    """
-    Adjusts brightness of image by scaling all pixels by the
-    `brightness` parameter.
-
-    Parameters
-    ----------
-    im : (M, N, P) numpy array
-        Image whose brightness is scaled. P >= 3,
-        so RGB, BGR, RGBA acceptable.
-    brightness : float
-        Scaling factor for pixel values. If < 0, returns junk.
-    sat : int
-        Saturation value for pixels (usually 255 for uint8)
-
-    Returns
-    -------
-    im : (M, N, P) numpy array
-        Original image with pixel values scaled
-
-    """
-    # if image is 4-channel (e.g., RGBA) extracts first 3
-    is_rgba = (len(im.shape) == 3) and (im.shape[2] == 4)
-    if is_rgba:
-        im_to_scale = im[:,:,:3]
-    else:
-        im_to_scale = im
-    # scales pixel values in image
-    im_to_scale = im_to_scale.astype(float)
-    im_to_scale *= brightness
-    # sets oversaturated values to saturation value
-    im_to_scale[im_to_scale >= sat] = sat
-    # loads result into original image
-    if is_rgba:
-        im[:,:,:3] = im_to_scale.astype('uint8')
-    else:
-        im = im_to_scale.astype('uint8')
-
-    return im
-
 
 def average_rgb(im):
     """
@@ -417,7 +373,7 @@ def compute_bkgd_med(vid_path, num_frames=100):
 
     # takes value channel if color image provided
     if len(bkgd_med.shape) == 3:
-        bkgd_med = get_val_channel(bkgd_med)
+        bkgd_med = basic.get_val_channel(bkgd_med)
 
     return bkgd_med
 
@@ -462,7 +418,7 @@ def compute_bkgd_med_thread(vid_path, num_frames=100):
 
     # takes value channel if color image provided
     if len(bkgd_med.shape) == 3:
-        bkgd_med = get_val_channel(bkgd_med)
+        bkgd_med = basic.get_val_channel(bkgd_med)
 
     return bkgd_med
 
@@ -601,18 +557,6 @@ def get_points(Npoints=1,im=None):
     pp = plt.ginput(n=Npoints,mouse_add=3, mouse_pop=1, mouse_stop=2,
                     timeout=0)
     return pp
-
-
-def get_val_channel(frame, selem=None):
-    """
-    Returns the value channel of the given frame.
-    """
-    # Convert reference frame to HSV
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # Only interested in "value" channel to distinguish bubbles, filters result
-    val = hsv[:,:,2] #skimage.filters.median(hsv[:,:,2], selem=selem).astype('uint8')
-
-    return val
 
 
 def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
@@ -1132,48 +1076,6 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
-def rotate_image(im,angle,center=[],crop=False,size=None):
-    """
-    Rotate the image about the center of the image or the user specified
-    center. Rotate by the angle in degrees and scale as specified. The new
-    image will be square with a side equal to twice the length from the center
-    to the farthest.
-    """
-    temp = im.shape
-    height = temp[0]
-    width = temp[1]
-    # Provide guess for center if none given (use midpoint of image window)
-    if len(center) == 0:
-        center = (width/2.0,height/2.0)
-    if not size:
-        tempx = max([height-center[1],center[1]])
-        tempy = max([width-center[0],center[0]])
-        # Calculate dimensions of resulting image to contain entire rotated image
-        L = int(2.0*np.sqrt(tempx**2.0 + tempy**2.0))
-        midX = L/2.0
-        midY = L/2.0
-        size = (L,L)
-    else:
-        midX = size[1]/2.0
-        midY = size[0]/2.0
-
-    # Calculation translation matrix so image is centered in output image
-    dx = midX - center[0]
-    dy = midY - center[1]
-    M_translate = np.float32([[1,0,dx],[0,1,dy]])
-    # Calculate rotation matrix
-    M_rotate = cv2.getRotationMatrix2D((midX,midY),angle,1)
-    # Translate and rotate image
-    im = cv2.warpAffine(im,M_translate,(size[1],size[0]))
-    im = cv2.warpAffine(im,M_rotate,(size[1],size[0]),flags=cv2.INTER_LINEAR)
-    # Crop image
-    if crop:
-        (x,y) = np.where(im>0)
-        im = im[min(x):max(x),min(y):max(y)]
-
-    return im
-
-
 def scale_by_brightfield(im, bf):
     """
     scale pixels by value in brightfield
@@ -1198,16 +1100,6 @@ def scale_by_brightfield(im, bf):
     im_scaled = im_scaled.astype('uint8')
 
     return im_scaled
-
-
-def scale_image(im,scale):
-    """
-    Scale the image by multiplicative scale factor "scale".
-    """
-    temp = im.shape
-    im = cv2.resize(im,(int(scale*temp[1]),int(scale*temp[0])))
-
-    return im
 
 
 def thresh_im(im, thresh=-1, c=5):
@@ -1260,7 +1152,7 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
     ID_curr = 0
     # chooses end frame to be last frame if given as -1
     if end == -1:
-        end = vid.count_frames(vid_path)
+        end = basic.count_frames(vid_path)
 
     # extracts fps from video filepath
     fps = fn.parse_vid_path(vid_path)['fps']
@@ -1268,11 +1160,11 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
     for f in range(start, end, every):
         # a0 = time.time()
         # loads frame from video file
-        frame, _ = vid.load_frame(vid_path, f, bokeh=False)
+        frame, _ = basic.load_frame(vid_path, f)
         # a1 = time.time()
         # print('1 {0:f} ms.'.format(1000*(a1-a0)))
         # extracts value channel of frame--including selem ruins segmentation
-        val = get_val_channel(frame)
+        val = basic.get_val_channel(frame)
         # a2 = time.time()
         # print('2 {0:f} ms.'.format(1000*(a2-a1)))
         # highlights bubbles in the given frame
@@ -1314,10 +1206,10 @@ def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
 
     # chooses end frame to be last frame if given as -1
     if end == -1:
-        end = vid.count_frames(vid_path)
+        end = basic.count_frames(vid_path)
 
     # creates figure for displaying frames with labeled bubbles
-    p, im = plot.format_frame(plot.bokehfy(bkgd), pix_per_um, fig_size_red,
+    p, im = pltim.format_frame(pltim.bokehfy(bkgd), pix_per_um, fig_size_red,
                               brightness=brightness)
     if show_fig:
         show(p, notebook_handle=True)
@@ -1326,8 +1218,8 @@ def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
 
         print('Analyzing frame # {0:d}.'.format(f))
         # gets value channel of frame for processing
-        frame, _ = vid.load_frame(vid_path, f, bokeh=False)
-        val = get_val_channel(frame)
+        frame, _ = basic.load_frame(vid_path, f)
+        val = basic.get_val_channel(frame)
         # processes frame
         bubble = highlight_bubble_method(val, bkgd, *args)
         # labels bubbles
@@ -1349,7 +1241,7 @@ def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
             new_ID = (ID % 255) + 1
             frame_relabeled[frame_labeled==label] = new_ID
 
-        frame_adj = adjust_brightness(frame, brightness)
+        frame_adj = basic.adjust_brightness(frame, brightness)
         frame_colored = skimage.color.label2rgb(frame_relabeled, image=frame_adj,
                                                 bg_label=0)
 
@@ -1378,7 +1270,7 @@ def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
             frame_disp = cv2.putText(img=frame_disp, text=str(ID), org=(x, y),
                                     fontFace=0, fontScale=2, color=color,
                                     thickness=3)
-        im.data_source.data['image']=[plot.bokehfy(frame_disp)]
+        im.data_source.data['image']=[pltim.bokehfy(frame_disp)]
         push_notebook()
         time.sleep(time_sleep)
 

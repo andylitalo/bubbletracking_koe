@@ -6,9 +6,6 @@ Handles input and output functions for track_bubbles.py.
 @date October 19, 2020
 """
 
-# directs system to source folder
-import sys
-sys.path.append('../'')
 
 # imports system libraries
 import argparse
@@ -18,11 +15,11 @@ import shutil
 import skimage.morphology
 
 # imports custom libraries
-import fn
+import genl.fn as fn
 import cvimproc.improc as improc
 
 # imports global conversions
-from conversions import *
+from genl.conversions import *
 
 # GLOBAL VARIABLES
 highlight_methods = {'highlight_bubble_hyst_thresh' :
