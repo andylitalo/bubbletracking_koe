@@ -6,6 +6,10 @@ Created on Thu May  7 09:03:01 2020
 vid.py contains functions useful for manipulating videos.
 """
 
+# directs system to source directory
+import sys
+sys.path.append('../')
+
 import numpy as np
 import cv2
 import scipy.ndimage
@@ -13,9 +17,9 @@ from bokeh.io import show, push_notebook
 import time
 
 # imports custom libraries
-import fn
-import improc
-import mask
+import genl.fn as fn
+import improc.improc as improc
+import improc.mask as mask
 import plot.improc as plot
 
 

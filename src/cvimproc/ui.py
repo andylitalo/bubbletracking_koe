@@ -4,6 +4,11 @@ Created on Wed May 20 16:52:03 2015
 
 @author: John
 """
+
+# directs system to source directory
+import sys
+sys.path.append('../')
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle as pkl
@@ -14,10 +19,10 @@ from tkinter import messagebox
 
 # imports custom libraries
 import plot.genl as pltg
-import vid
-import geo
-import mask
-import improc
+import improc.vid as vid
+import genl.geo as geo
+import improc.mask as mask
+import improc.improc as improc
 
 
 

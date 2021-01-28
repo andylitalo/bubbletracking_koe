@@ -4,10 +4,9 @@ using OpenCV EXCLUSIVELY.
 """
 
 import sys
-# directs system to additional libraries
-sys.path.append('../genl/')
-# directs system to class libraries
-sys.path.append('../classes/')
+# directs system to source folder
+sys.path.append('../')
+
 
 # imports standard libraries
 import numpy as np
@@ -34,9 +33,9 @@ import vid
 import mask
 
 # imports general custom libraries
-import fn
-import geo
-from conversions import *
+import genl.fn as fn
+import genl.geo as geo
+from genl.conversions import *
 
 # imports custom classes (with reload clauses)
 from classes import Bubble, FileVideoStream

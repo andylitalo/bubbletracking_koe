@@ -8,8 +8,9 @@ The mask_im function is also in improc.py since most functions
 only require it. These functions are largely obsolte and are kept
 in this document so libraries with legacy code can still run.
 """
-
+# directs system to source directory
 import sys
+sys.path.append('../')
 
 import numpy as np
 import pandas as pd
@@ -17,11 +18,10 @@ import cv2
 import scipy.ndimage
 import pickle as pkl
 
-# directs system to general libraries
-sys.path.append('../genl/')
+
 # imports custom libraries
-import geo
-import ui
+import genl.geo as geo
+import improc.ui as ui
 
 
 

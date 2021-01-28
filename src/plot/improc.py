@@ -7,7 +7,12 @@ defined in improc.py.
 
 @author: Andy
 """
-# imoprts standard libs
+
+# directs system to source directory
+import sys
+sys.path.append('../')
+
+# imports standard libs
 import numpy as np
 import cv2
 
@@ -18,15 +23,15 @@ from bokeh.models.annotations import Title
 from bokeh.layouts import gridplot
 
 # imports custom libraries
-import improc
-import vid
+import improc.improc as improc
+import improc.vid as vid
 
 
 def bokehfy(im, vert_flip=True):
     """
     Formats image for display with Bokeh. Can accommodate boolean, 0-1 scaled
     floats, and 0-255 scaled uint8 images.
-    
+
     Parameters
     ----------
     im : numpy array
@@ -35,7 +40,7 @@ def bokehfy(im, vert_flip=True):
         Flag indicating if the image should be flipped using cv2.flip().
         Used because Bokeh inherently flips objects, so flipping them before-
         hand cancels the effect.
-        
+
     Returns
     -------
     im : numpy array
@@ -59,7 +64,7 @@ def bokehfy(im, vert_flip=True):
         im = cv2.cvtColor(im, cv2.COLOR_GRAY2RGBA)
     if vert_flip:
         im = cv2.flip(im, 0) # because Bokeh flips vertically
-    
+
     return im
 
 
@@ -71,12 +76,12 @@ def format_frame(frame, pix_per_um, fig_size_red, brightness=1.0, title=None):
     height_um = int(height / pix_per_um)
     width_fig = int(width*fig_size_red)
     height_fig = int(height*fig_size_red)
-    p = figure(x_range=(0,width_um), y_range=(0,height_um), output_backend="webgl", 
+    p = figure(x_range=(0,width_um), y_range=(0,height_um), output_backend="webgl",
                width=width_fig, height=height_fig, title=title)
     p.xaxis.axis_label = 'width [um]'
     p.yaxis.axis_label = 'height [um]'
     im = p.image_rgba(image=[frame], x=0, y=0, dw=width_um, dh=height_um)
-    
+
     return p, im
 
 
@@ -99,11 +104,11 @@ def linked_four_frames(four_frames, pix_per_um, fig_size_red, show_fig=True):
     # shows figure
     if show_fig:
         show(p_grid)
-    
+
     return p_grid
 
 
-def linked_frames(frame_list, pix_per_um, fig_size_red, shape=(2,2), 
+def linked_frames(frame_list, pix_per_um, fig_size_red, shape=(2,2),
                   show_fig=True, brightness=1.0, title_list=[]):
     """
     Shows multiple frames with linked panning and zooming.
@@ -137,13 +142,13 @@ def linked_frames(frame_list, pix_per_um, fig_size_red, shape=(2,2),
         p_table += [p_row]
         if n >= len(p):
             break
-            
+
     # creates gridplot
     p_grid = gridplot(p_table)
     # shows figure
     if show_fig:
         show(p_grid)
-    
+
     return p_grid
 
 
@@ -159,13 +164,13 @@ def six_frame_eda(vid_filepath, f, params, highlight_method, pix_per_um,
     im_diff, thresh_bw, closed_bw, bubble_bw, bubble = all_steps
 
     # collects images to display
-    im_list = [bokehfy(val), bokehfy(improc.adjust_brightness(im_diff, 3.0)), 
+    im_list = [bokehfy(val), bokehfy(improc.adjust_brightness(im_diff, 3.0)),
                bokehfy(thresh_bw), bokehfy(closed_bw),
               bokehfy(bubble_bw), bokehfy(bubble)]
-    title_list = ['Frame {0:d}: Value Channel (HSV)'.format(f), 
-                  'Subtracted Reference (Value)', 'Thresholded', 
+    title_list = ['Frame {0:d}: Value Channel (HSV)'.format(f),
+                  'Subtracted Reference (Value)', 'Thresholded',
                   'Binary Closing', 'Small Obj Removed', 'Holes Filled' + tag]
-    p_grid = linked_frames(im_list, pix_per_um, fig_size_red, shape=(2,3), 
+    p_grid = linked_frames(im_list, pix_per_um, fig_size_red, shape=(2,3),
                              brightness=3.0, title_list=title_list)
-    
+
     return p_grid
