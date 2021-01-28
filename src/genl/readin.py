@@ -6,9 +6,9 @@ Handles input and output functions for track_bubbles.py.
 @date October 19, 2020
 """
 
-# adds folder of libraries to path
+# directs system to source folder
 import sys
-sys.path.append('../../libs/')
+sys.path.append('../'')
 
 # imports system libraries
 import argparse
@@ -19,7 +19,7 @@ import skimage.morphology
 
 # imports custom libraries
 import fn
-import improc
+import cvimproc.improc as improc
 
 # imports global conversions
 from conversions import *
