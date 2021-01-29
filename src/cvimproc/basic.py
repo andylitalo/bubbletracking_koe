@@ -7,7 +7,6 @@ Date: January 28, 2021
 """
 
 import cv2
-import scipy.ndimage
 import numpy as np
 
 import cvimproc.mask as mask
@@ -140,49 +139,6 @@ def count_frames_manual(video):
         total += 1
     # return the total number of frames in the video file
     return total
-
-
-def extract_frame(Vid,nFrame,hMatrix=None,maskData=None,filterFrame=False,
-                  removeBanner=True,center=True,scale=1,angle=0):
-    """
-    Extracts nFrame'th frame and scales by 'scale' factor from video 'Vid'.
-    """
-    Vid.set(1,nFrame)
-    ret, frame = Vid.read()
-    if not ret:
-        print('Frame not read')
-    else:
-        frame = frame[:,:,0]
-
-    # Scale the size if requested
-    if scale != 1:
-        frame = scale_image(frame,scale)
-
-    # Perform image filtering if requested
-    if filterFrame:
-        if removeBanner:
-            ind = np.argmax(frame[:,0]>0)
-            temp = frame[ind:,:]
-            # temp = scipy.ndimage.gaussian_filter(temp, 0.03)
-            temp = cv2.GaussianBlur(temp, (0,0), sigmaX=0.03, sigmaY=0.03)
-            frame[ind:,:] = temp
-        else:
-            # frame = scipy.ndimage.gaussian_filter(frame, 0.03)
-            frame = cv2.GaussianBlur(frame, (0,0), sigmaX=0.03, sigmaY=0.03)
-
-    # Apply image transformation using homography matrix if passed
-    if hMatrix is not None:
-        temp = frame.shape
-        frame = cv2.warpPerspective(frame,hMatrix,(temp[1],temp[0]))
-
-    # Apply mask if needed
-    if maskData is not None:
-        frame = mask.mask_image(frame,maskData['mask'])
-        if center:
-            frame = rotate_image(frame,angle,center=maskData['diskCenter'],
-                                     size=frame.shape)
-
-    return frame
 
 
 def get_val_channel(frame, selem=None):
