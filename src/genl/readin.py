@@ -12,7 +12,7 @@ import argparse
 import shutil
 
 # imports image-processing libraries
-import skimage.morphology
+import cv2
 
 # imports custom libraries
 import genl.fn as fn
@@ -69,7 +69,8 @@ def load_params(input_file):
     R_o = um_2_m*float(params['R_o']) # [m]
 
     # image-processing parameters
-    selem = skimage.morphology.disk(int(params['selem_dim']))
+    sd = int(params['selem_dim'])
+    selem = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sd, sd))
     width_border = int(params['width_border'])
     fig_size_red = float(params['fig_size_red'])
     num_frames_for_bkgd = int(params['num_frames_for_bkgd'])
