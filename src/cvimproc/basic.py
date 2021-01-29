@@ -5,7 +5,7 @@ as vid.py
 Author: Andy Ylitalo
 Date: January 28, 2021
 """
-#
+
 import cv2
 import scipy.ndimage
 import numpy as np
