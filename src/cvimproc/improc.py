@@ -461,11 +461,41 @@ def find_label(frame_labeled, rc, cc):
     # failed to find non-zero label--returns -1 to indicate failure
     return -1
 
+
+def fill_holes(im_bw):
+    """
+    Fills holes in image solely using OpenCV to replace
+    `fill_holes` for porting to C++.
+
+    Parameters
+    ----------
+    im_bw : numpy array of uint8
+        Image whose holes are to be filled. 0s and 255s
+
+    Returns
+    -------
+    im : numpy array of uint8
+        Image with holes filled, including those cut off at border. 0s and 255s
+    """
+    # converts image to uint8 on 0-255 scale if given as boolean (0 or 1)
+    if im_bw.dtype == 'bool':
+        im_bw = im_bw.astype('uint8')
+        im_bw *= 255
+    # fills bkgd with white (assuming origin is contiguously connected with bkgd)
+    cv2.floodFill(im_bw, None, (0,0), 255)
+    # inverts image (black -> white and white -> black)
+    im_inv = cv2.bitwise_not(im_bw)
+    # combines inverted image with original image to fill holes
+    im_filled = (im_inv | im_bw)
+
+    return im_filled
+
+
 def frame_and_fill(im, w):
     """
     Frames image with border to fill in holes cut off at the edge. Without
     adding a frame, a hole in an object that is along the edge will not be
-    viewed as a hole to be filled by scipy.ndimage.morphology.binary_fill_holes
+    viewed as a hole to be filled by fill_holes
     since a "hole" must be completely enclosed by white object pixels.
 
     Parameters
@@ -494,7 +524,7 @@ def frame_and_fill(im, w):
     # fills in open space in the middle of the bubble that might not get
     # filled if bubble is on the edge of the frame (because then that
     # open space is not completely bounded)
-    im_filled = scipy.ndimage.morphology.binary_fill_holes(im_framed)
+    im_filled = fill_holes(im_framed)
     im = mask_im(im_filled, np.logical_not(mask_frame_sides))
     im = 255*im.astype('uint8')
 
@@ -583,7 +613,7 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # converts image to uint8 type from bool
     bubble_bw = 255*bubble_bw.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = scipy.ndimage.morphology.binary_fill_holes(bubble_bw)
+    bubble_part_filled = fill_holes(bubble_bw)
     # fills in holes that might be cut off at border
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
@@ -629,7 +659,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # converts image to uint8 type from bool
     bubble_bw_1 = 255*bubble_bw_1.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
-    bubble_1 = scipy.ndimage.morphology.binary_fill_holes(bubble_bw_1)
+    bubble_1 = fill_holes(bubble_bw_1)
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
@@ -644,7 +674,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # converts image to uint8 type from bool
     bubble_bw_2 = 255*bubble_bw_2.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = scipy.ndimage.morphology.binary_fill_holes(bubble_bw_2)
+    bubble_part_filled = fill_holes(bubble_bw_2)
     # fills in holes that might be cut off at border
     bubble_2 = frame_and_fill(bubble_part_filled, width_border)
 
@@ -683,7 +713,7 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # converts image to uint8 type from bool
     bubble_bw = 255*bubble_bw.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = scipy.ndimage.morphology.binary_fill_holes(bubble_bw)
+    bubble_part_filled = fill_holes(bubble_bw)
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
     # returns intermediate steps if requested.
