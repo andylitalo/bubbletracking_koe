@@ -59,7 +59,7 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_bubbles(frame_labeled, f, bubbles_prev, bubbles_archive, ID_curr,
+def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
                    flow_dir, fps, pix_per_um, width_border, row_lo, row_hi,
                    v_max, min_size_reg=0):
     """
@@ -73,12 +73,13 @@ def assign_bubbles(frame_labeled, f, bubbles_prev, bubbles_archive, ID_curr,
 
     Updates bubbles_prev and bubbles_archive in place.
 
+    ***OpenCV-compatible version: labels frame instead of receiving labeled
+    frame by using cv2.connectedComponentsWithStats.
+
     Parameters
     ----------
-    frame_labeled : (M x N) numpy array of uint8
-        Video frame with objects labeled with unique numbers. They only need
-        to be unique so regionprops() can distinguish them. These are not
-        the values used to determine unique ID numbers for the bubbles.
+    frame_bw : (M x N) numpy array of uint8
+        Binarized video frame
     f : int
         Frame number from video
     bubbles_prev : OrderedDict of dictionaries
@@ -116,21 +117,29 @@ def assign_bubbles(frame_labeled, f, bubbles_prev, bubbles_archive, ID_curr,
     .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
     # identifies the different objects in the frame
-    region_props = skimage.measure.regionprops(frame_labeled)
+    num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(frame_bw)
+    # region_props = skimage.measure.regionprops(frame_labeled)
     # creates dictionaries of properties for each object
     bubbles_curr = []
-    for i, props in enumerate(region_props):
+    # records stats of each labeled object; skips 0-label (background)
+    for i in range(1, num_labels):
         # creates dictionary of bubble properties for one frame, which
         # can be merged to a Bubble object
         bubble = {}
-        bubble['centroid'] = props.centroid
-        bubble['area'] = props.area
-        bubble['orientation'] = props.orientation
-        bubble['major axis'] = props.major_axis_length
-        bubble['minor axis'] = props.minor_axis_length
-        bubble['bbox'] = props.bbox # (row_min, col_min, row_max, col_max)
+        # switches default (x,y) -> (row, col)
+        bubble['centroid'] = centroids[i][::-1]
+        bubble['area'] = stats[i, cv2.CC_STAT_AREA]
+        # bubble['orientation'] = props.orientation
+        # bubble['major axis'] = props.major_axis_length
+        # bubble['minor axis'] = props.minor_axis_length
+        row_min = stats[i, cv2.CC_STAT_TOP]
+        col_min = stats[i, cv2.CC_STAT_LEFT]
+        row_max = row_min + stats[i, cv2.CC_STAT_HEIGHT]
+        col_max = col_min + stats[i, cv2.CC_STAT_WIDTH]
+        bbox = (row_min, col_min, row_max, col_max)
+        bubble['bbox'] = bbox
         bubble['frame'] = f
-        bubble['on border'] = is_on_border(props.bbox,
+        bubble['on border'] = is_on_border(bbox,
               frame_labeled, width_border)
         # adds dictionary for this bubble to list of bubbles in current frame
         bubbles_curr += [bubble]
@@ -1002,27 +1011,27 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
-# def remove_small_objects_slow(im, min_size):
-#     """
-#     Removes small objects in image based on Green's formula from
-#     multivariable calculus, briefly described here:
-#     https://answers.opencv.org/question/58/area-of-a-single-pixel-object-in-opencv/#126
-#   . Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
-#
-#     On a few test arrays, it appears to be slower than remove_small_objects
-#
-#     Based on response from nathancy @
-#     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
-#     """
-#     # Filter using contour area and remove small noise
-#     _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-#     for c in cnts:
-#         area = cv2.contourArea(c)
-#         print(area)
-#         if area < min_size:
-#             cv2.drawContours(im, [c], -1, (0,0,0), -1)
-#
-#     return im
+def remove_small_objects_findContours(im, min_size):
+    """
+    Removes small objects in image based on Green's formula from
+    multivariable calculus, briefly described here:
+    https://answers.opencv.org/question/58/area-of-a-single-pixel-object-in-opencv/#126
+    Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
+
+    On a few test arrays, it appears to be slower than remove_small_objects
+
+    Based on response from nathancy @
+    https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
+    """
+    # Filter using contour area and remove small noise
+    _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for c in cnts:
+        area = cv2.contourArea(c)
+        print(area)
+        if area < min_size:
+            cv2.drawContours(im, [c], -1, (0,0,0), -1)
+
+    return im
 
 
 def remove_small_objects(im, min_size):
@@ -1152,12 +1161,10 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
         # print('3 {0:f} ms.'.format(1000*(a3-a2)))
         # labels bubbles in image (background is 0)
         # frame_labeled = skimage.measure.label(bubbles_bw)
-        bubbles_bw = basic.cvify(bubbles_bw)
-        _, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubbles_bw)
         # a4 = time.time()
         # print('4 {0:f} ms.'.format(1000*(a4-a3)))
         # finds bubbles and assigns IDs to track them, saving to archive
-        ID_curr = assign_bubbles(frame_labeled, f, bubbles_prev,
+        ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev,
                                  bubbles_archive, ID_curr, flow_dir, fps,
                                  pix_per_um, width_border, row_lo, row_hi,
                                  v_max, min_size_reg=min_size_reg)
