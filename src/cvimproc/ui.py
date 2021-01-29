@@ -53,7 +53,7 @@ def click_flow(im, mask_path, region='ROI', save=True, check=False):
     msg = 'Click 4 vertices defining {0:s}.'.format(region) + \
                 ' First 2 clicks should be along flow direction.'
     vertices = define_outer_edge(im, 'polygon', message=msg)
-    mask_data = get_polygonal_mask_data(im, vertices, mask_path, check=check,
+    mask_data = get_polygonal_mask_data(im, mask_path, check=check,
                                                 save=save)
     verts = mask_data['vertices']
     # computes coordinates of flow vector from first two clicks
