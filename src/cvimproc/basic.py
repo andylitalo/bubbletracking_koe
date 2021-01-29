@@ -141,6 +141,35 @@ def count_frames_manual(video):
     return total
 
 
+def cvify(im):
+    """
+    Makes image suitable for OpenCV functions, i.e., converts to 0-255 scale
+    uint8 array.
+
+    Parameters
+    ----------
+    im : numpy array
+        Image to make suitable for OpenCV. Can be any type.
+
+    Returns
+    -------
+    im_cv : numpy array of uint8s
+        Image suitable for OpenCV algorithms (0-255 scale, uint8)
+    """
+    # converts boolean to 0-255 scale, uint8
+    if im.dtype == 'bool':
+        im.astype('uint8', copy=False)
+        im *= 255
+    # converts float array scaled from 0-1 to uint8, 0-255 scale
+    elif im.dtype == 'float' and np.max(im) <= 1:
+        im *= 255
+        im.astype('uint8', copy=False)
+    elif im.dtype != 'uint8':
+        print('basic.cvify(): image type not recognized')
+
+    return im
+    
+
 def get_val_channel(frame, selem=None):
     """
     Returns the value channel of the given frame.
