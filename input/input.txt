@@ -40,5 +40,5 @@ vid_subfolder = 20200905_80bar/ # yyyymmdd_<pressure>bar/
 vid_name = v360_co2_2314_034_800_0200_96_295_04_5.mp4 # include ext
 
 expmt_folder = ../input/videos/
-data_folder = ..output/data/
+data_folder = ../output/data/
 fig_folder = ../figs/
