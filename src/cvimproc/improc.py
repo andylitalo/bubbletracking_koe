@@ -21,7 +21,6 @@ import skimage.color
 import skimage.segmentation
 import skimage.feature
 import skimage.filters
-import scipy.ndimage
 
 # imports custom image processing libraries
 import cvimproc.mask as mask
@@ -467,6 +466,9 @@ def fill_holes(im_bw):
     Fills holes in image solely using OpenCV to replace
     `fill_holes` for porting to C++.
 
+    Based on:
+     https://learnopencv.com/filling-holes-in-an-image-using-opencv-python-c/
+
     Parameters
     ----------
     im_bw : numpy array of uint8
@@ -477,12 +479,8 @@ def fill_holes(im_bw):
     im : numpy array of uint8
         Image with holes filled, including those cut off at border. 0s and 255s
     """
-    # converts image to uint8 on 0-255 scale if given as boolean (0 or 1)
-    if im_bw.dtype == 'bool':
-        im_bw = im_bw.astype('uint8')
-        im_bw *= 255
     # fills bkgd with white (assuming origin is contiguously connected with bkgd)
-    cv2.floodFill(im_bw, None, (0,0), 255)
+    cv2.floodFill(basic.cvify(im_bw), None, (0,0), 255)
     # inverts image (black -> white and white -> black)
     im_inv = cv2.bitwise_not(im_bw)
     # combines inverted image with original image to fill holes
@@ -606,7 +604,8 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
                         im_diff, th_lo, th_hi)
 
     # smooths out thresholded image
-    closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
+    # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
+    closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = skimage.morphology.remove_small_objects(closed_bw.astype(bool),
                                                         min_size=min_size)
@@ -652,10 +651,13 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # thresholds image to become black-and-white
     thresh_bw_1 = thresh_im(im_diff, th)
     # smooths out thresholded image
-    closed_bw_1 = skimage.morphology.binary_closing(thresh_bw_1, selem=selem)
+    # closed_bw_1 = skimage.morphology.binary_closing(thresh_bw_1, selem=selem)
+    closed_bw_1 = cv2.morphologyEx(basic.cvify(thresh_bw_1), cv2.MORPH_OPEN, selem)
     # removes small objects
-    bubble_bw_1 = skimage.morphology.remove_small_objects(closed_bw_1.astype(bool),
-                                                        min_size=min_size_th)
+    # bubble_bw_1 = skimage.morphology.remove_small_objects(closed_bw_1.astype(bool),
+    #                                                     min_size=min_size_th)
+    bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
+
     # converts image to uint8 type from bool
     bubble_bw_1 = 255*bubble_bw_1.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
@@ -663,11 +665,12 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
-    thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
+    thresh_bw_2 = basic.cvify(skimage.filters.apply_hysteresis_threshold(\
                         im_diff, th_lo, th_hi)
 
     # smooths out thresholded image
-    closed_bw_2 = skimage.morphology.binary_closing(thresh_bw_2, selem=selem)
+    # closed_bw_2 = skimage.morphology.binary_closing(thresh_bw_2, selem=selem)
+    closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw_2 = skimage.morphology.remove_small_objects(closed_bw_2.astype(bool),
                                                         min_size=min_size_hyst)
@@ -706,7 +709,8 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # thresholds image to become black-and-white
     thresh_bw = thresh_im(im_diff, thresh)
     # smooths out thresholded image
-    closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
+    # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
+    closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = skimage.morphology.remove_small_objects(closed_bw.astype(bool),
                                                         min_size=min_size)
@@ -721,7 +725,6 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
         return im_diff, thresh_bw, closed_bw, bubble_bw, bubble
     else:
         return bubble
-
 
 
 
@@ -800,50 +803,9 @@ def mask_im(im, mask):
     return im_masked
 
 
-def measure_stream_width(im, params):
-    """
-    Computes the width of a stream of a darker color inside the image.
-
-    Parameters:
-
-    Returns:
-
-    """
-    # Extract parameters: microns per pixel conversion and brightfield image
-    um_per_pix = params[0]
-    bf = params[1]
-    # Scale by brightfield image if provided
-    if bf is not None:
-        scale_by_brightfield(im, bf)
-    # create 0-255 uint8 copy of image
-    im = one_2_uint8(im)
-    # K-means clustering into bkgd and stream (reshape im as array of RGB vals)
-    # TODO: possible extension - group using (row,col) as well
-    k_means = sklearn.cluster.KMeans(n_clusters=2).fit(im.reshape(-1,3))
-    im_clustered = k_means.labels_.reshape(im.shape[0], im.shape[1])
-    # make sure that the stream is labeled as 1 and background as 0 by using
-    # the most common label for the top line as the background label
-    im_clustered != (np.mean(im_clustered[0,:])>0.5)
-    # Extract the longest labeled region
-    im_labeled = skimage.measure.label(im_clustered)
-    width_max = 0
-    label = -1
-    for region in skimage.measure.regionprops(im_labeled):
-        row_min, col_min, row_max, col_max = region.bbox
-        width = col_max - col_min
-        if width > width_max:
-            label = region.label
-            width_max = width
-    assert label >= 0, "'label'=-1', no labeled regions found in k-means clustering."
-    im_stream = (im_labeled==label)
-    # compute stream width and standard deviation
-    width, width_std = measure_labeled_im_width(im_stream, um_per_pix)
-
-    return width, width_std
-
-
 def measure_labeled_im_width(im_labeled, um_per_pix):
     """
+    j
     """
     # Count labeled pixels in each column (roughly stream width)
     num_labeled_pixels = np.sum(im_labeled, axis=0)
@@ -1105,6 +1067,15 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
 
     return output
 
+
+def remove_small_objects(im, min_size):
+    """
+    Removes small objects in image. Uses OpenCV to replicate
+    `skimage.morphology.remove_small_objects`.
+
+    Based on
+    https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
+    """
 
 def scale_by_brightfield(im, bf):
     """
