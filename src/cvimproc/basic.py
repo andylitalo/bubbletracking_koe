@@ -158,17 +158,20 @@ def cvify(im):
     """
     # converts boolean to 0-255 scale, uint8
     if im.dtype == 'bool':
-        im.astype('uint8', copy=False)
+        im = im.astype('uint8', copy=False)
         im *= 255
     # converts float array scaled from 0-1 to uint8, 0-255 scale
     elif im.dtype == 'float' and np.max(im) <= 1:
         im *= 255
-        im.astype('uint8', copy=False)
+        im = im.astype('uint8', copy=False)
+    elif str(im.dtype).find('int') >= 0:
+        im = im.astype('uint8', copy=False)
     elif im.dtype != 'uint8':
-        print('basic.cvify(): image type not recognized')
+        print('basic.cvify(): image type {0:s} not recognized'.format(
+                                                                str(im.dtype)))
 
     return im
-    
+
 
 def get_val_channel(frame, selem=None):
     """

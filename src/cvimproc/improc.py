@@ -377,51 +377,6 @@ def compute_bkgd_med(vid_path, num_frames=100):
     return bkgd_med
 
 
-def compute_bkgd_med_thread(vid_path, num_frames=100):
-    """
-    Computes the background of a given number of frames of a video by computing
-    the pixel-wise median of the specified number of frames. This method was
-    shown to provide a good background free of moving objects but preserving
-    stationary ones in extract_bkgd.ipynb.
-
-    The frames are loaded using threading, a fast and low-memory method.
-
-    Parameters
-    ----------
-    vid_path : string
-        Filepath to video for processing.
-    num_frames : int, optional
-        Number of frames to process. The default is 100.
-
-    Returns
-    -------
-    bkgd_med : numpy array
-        Pixel-wise median of all frames. A useful background for background
-        subtraction.
-
-    """
-    print('started')
-    # initializes file video stream for threaded loading of frames
-    fvs = FileVideoStream(vid_path).start()
-    print('thing happened')
-    # reads first frame as input for the algorithm; must convert to float
-    # to proceed through file video stream
-    frame = fvs.read().astype(float)
-    print('say what?')
-    # computes the median
-    frame_trio = proc_frames_thread(fvs, med_alg_thread, ([frame],),
-                                    num_frames=num_frames)
-    print('finished')
-    # the median value of pixels is the first object in the frame trio list
-    bkgd_med = frame_trio[0][0].astype('uint8')
-
-    # takes value channel if color image provided
-    if len(bkgd_med.shape) == 3:
-        bkgd_med = basic.get_val_channel(bkgd_med)
-
-    return bkgd_med
-
-
 def find_label(frame_labeled, rc, cc):
     """
     Returns the label for the bubble with the given centroid coordinates.
@@ -479,8 +434,10 @@ def fill_holes(im_bw):
     im : numpy array of uint8
         Image with holes filled, including those cut off at border. 0s and 255s
     """
+    # formats image for OpenCV
+    im_bw = basic.cvify(im_bw)
     # fills bkgd with white (assuming origin is contiguously connected with bkgd)
-    cv2.floodFill(basic.cvify(im_bw), None, (0,0), 255)
+    cv2.floodFill(im_bw, None, (0,0), 255)
     # inverts image (black -> white and white -> black)
     im_inv = cv2.bitwise_not(im_bw)
     # combines inverted image with original image to fill holes
@@ -524,7 +481,6 @@ def frame_and_fill(im, w):
     # open space is not completely bounded)
     im_filled = fill_holes(im_framed)
     im = mask_im(im_filled, np.logical_not(mask_frame_sides))
-    im = 255*im.astype('uint8')
 
     return im
 
@@ -607,10 +563,9 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
-    bubble_bw = skimage.morphology.remove_small_objects(closed_bw.astype(bool),
-                                                        min_size=min_size)
+    bubble_bw = remove_small_objects(closed_bw, min_size)
     # converts image to uint8 type from bool
-    bubble_bw = 255*bubble_bw.astype('uint8')
+    bubble_bw = bubble_bw
     # fills enclosed holes with white, but leaves open holes black
     bubble_part_filled = fill_holes(bubble_bw)
     # fills in holes that might be cut off at border
@@ -643,39 +598,29 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
 
-    # scales subtracted image by the gradient to reduce effects of movement
-    # grad = skimage.filters.sobel(bkgd)
-    # im_diff = np.divide(im_diff, (grad+1))*np.mean(grad+1)
-
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
     # thresholds image to become black-and-white
     thresh_bw_1 = thresh_im(im_diff, th)
     # smooths out thresholded image
     # closed_bw_1 = skimage.morphology.binary_closing(thresh_bw_1, selem=selem)
-    closed_bw_1 = cv2.morphologyEx(basic.cvify(thresh_bw_1), cv2.MORPH_OPEN, selem)
+    closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
     # removes small objects
     # bubble_bw_1 = skimage.morphology.remove_small_objects(closed_bw_1.astype(bool),
     #                                                     min_size=min_size_th)
     bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
-
-    # converts image to uint8 type from bool
-    bubble_bw_1 = 255*bubble_bw_1.astype('uint8')
     # fills enclosed holes with white, but leaves open holes black
     bubble_1 = fill_holes(bubble_bw_1)
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
-    thresh_bw_2 = basic.cvify(skimage.filters.apply_hysteresis_threshold(\
-                        im_diff, th_lo, th_hi))
-
+    thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
+                        im_diff, th_lo, th_hi)
+    thresh_bw_2 = basic.cvify(thresh_bw_2)
     # smooths out thresholded image
     # closed_bw_2 = skimage.morphology.binary_closing(thresh_bw_2, selem=selem)
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
-    bubble_bw_2 = skimage.morphology.remove_small_objects(closed_bw_2.astype(bool),
-                                                        min_size=min_size_hyst)
-    # converts image to uint8 type from bool
-    bubble_bw_2 = 255*bubble_bw_2.astype('uint8')
+    bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
     # fills enclosed holes with white, but leaves open holes black
     bubble_part_filled = fill_holes(bubble_bw_2)
     # fills in holes that might be cut off at border
@@ -712,10 +657,7 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
-    bubble_bw = skimage.morphology.remove_small_objects(closed_bw.astype(bool),
-                                                        min_size=min_size)
-    # converts image to uint8 type from bool
-    bubble_bw = 255*bubble_bw.astype('uint8')
+    bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills enclosed holes with white, but leaves open holes black
     bubble_part_filled = fill_holes(bubble_bw)
     bubble = frame_and_fill(bubble_part_filled, width_border)
@@ -1067,15 +1009,58 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
+# def remove_small_objects_slow(im, min_size):
+#     """
+#     Removes small objects in image based on Green's formula from
+#     multivariable calculus, briefly described here:
+#     https://answers.opencv.org/question/58/area-of-a-single-pixel-object-in-opencv/#126
+#   . Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
+#
+#     On a few test arrays, it appears to be slower than remove_small_objects
+#
+#     Based on response from nathancy @
+#     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
+#     """
+#     # Filter using contour area and remove small noise
+#     _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+#     for c in cnts:
+#         area = cv2.contourArea(c)
+#         print(area)
+#         if area < min_size:
+#             cv2.drawContours(im, [c], -1, (0,0,0), -1)
+#
+#     return im
+
+
 def remove_small_objects(im, min_size):
     """
-    Removes small objects in image. Uses OpenCV to replicate
-    `skimage.morphology.remove_small_objects`.
+    Removes small objects in image based on number of pixels in the object.
+    Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
+    Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
 
-    Based on
-    https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
+    Appears to be faster than the preceding method (commented out).
+
+    Parameters
+    ----------
+    im : numpy array of uint8s
+        image from which to remove small objects
     """
-    return result
+    # formats image for OpenCV
+    im = basic.cvify(im)
+    # computes maximum value, casting to uint8 type for OpenCV functions
+    max_val = np.max(im)
+    # finds and labels objects in image--note im_labeled is int32 type
+    n_labels, im_labeled, stats, _ = cv2.connectedComponentsWithStats(im)
+    # loops through non-zero labels (i.e., objects--bkgd is labeled 0)
+    for i in range(1, n_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area < min_size:
+            im_labeled[np.where(im_labeled==i)] = 0
+        else:
+            im_labeled[np.where(im_labeled==i)] = max_val
+
+    return im_labeled.astype('uint8')
+
 
 def scale_by_brightfield(im, bf):
     """
