@@ -5,7 +5,7 @@ as vid.py
 Author: Andy Ylitalo
 Date: January 28, 2021
 """
-
+#
 import cv2
 import scipy.ndimage
 import numpy as np
@@ -194,7 +194,7 @@ def get_val_channel(frame, selem=None):
 
     return val
 
-    
+
 def load_frame(vid_path, num):
     """Loads frame from video using OpenCV and prepares for display in Bokeh."""
     cap = cv2.VideoCapture(vid_path)
