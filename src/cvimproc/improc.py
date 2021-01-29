@@ -666,7 +666,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
     thresh_bw_2 = basic.cvify(skimage.filters.apply_hysteresis_threshold(\
-                        im_diff, th_lo, th_hi)
+                        im_diff, th_lo, th_hi))
 
     # smooths out thresholded image
     # closed_bw_2 = skimage.morphology.binary_closing(thresh_bw_2, selem=selem)
@@ -725,7 +725,6 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
         return im_diff, thresh_bw, closed_bw, bubble_bw, bubble
     else:
         return bubble
-
 
 
 def is_color(im):
@@ -1076,6 +1075,7 @@ def remove_small_objects(im, min_size):
     Based on
     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
     """
+    return result
 
 def scale_by_brightfield(im, bf):
     """
