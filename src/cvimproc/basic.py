@@ -163,10 +163,12 @@ def extract_frame(Vid,nFrame,hMatrix=None,maskData=None,filterFrame=False,
         if removeBanner:
             ind = np.argmax(frame[:,0]>0)
             temp = frame[ind:,:]
-            temp = scipy.ndimage.gaussian_filter(temp, 0.03)
+            # temp = scipy.ndimage.gaussian_filter(temp, 0.03)
+            temp = cv2.GaussianBlur(temp, (0,0), sigmaX=0.03, sigmaY=0.03)
             frame[ind:,:] = temp
         else:
-            frame = scipy.ndimage.gaussian_filter(frame, 0.03)
+            # frame = scipy.ndimage.gaussian_filter(frame, 0.03)
+            frame = cv2.GaussianBlur(frame, (0,0), sigmaX=0.03, sigmaY=0.03)
 
     # Apply image transformation using homography matrix if passed
     if hMatrix is not None:
