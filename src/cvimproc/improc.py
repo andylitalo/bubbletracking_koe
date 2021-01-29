@@ -14,8 +14,6 @@ import time
 import cv2
 
 # TODO: remove these libraries and replace calls with opencv
-import skimage.morphology
-import sklearn.cluster
 import skimage.measure
 import skimage.color
 import skimage.segmentation
@@ -560,7 +558,6 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
                         im_diff, th_lo, th_hi)
 
     # smooths out thresholded image
-    # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
@@ -602,10 +599,8 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # thresholds image to become black-and-white
     thresh_bw_1 = thresh_im(im_diff, th)
     # smooths out thresholded image
-    # closed_bw_1 = skimage.morphology.binary_closing(thresh_bw_1, selem=selem)
     closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
     # removes small objects
-    # bubble_bw_1 = skimage.morphology.remove_small_objects(closed_bw_1.astype(bool),
     #                                                     min_size=min_size_th)
     bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
     # fills enclosed holes with white, but leaves open holes black
@@ -617,7 +612,6 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
                         im_diff, th_lo, th_hi)
     thresh_bw_2 = basic.cvify(thresh_bw_2)
     # smooths out thresholded image
-    # closed_bw_2 = skimage.morphology.binary_closing(thresh_bw_2, selem=selem)
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
@@ -654,7 +648,6 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # thresholds image to become black-and-white
     thresh_bw = thresh_im(im_diff, thresh)
     # smooths out thresholded image
-    # closed_bw = skimage.morphology.binary_closing(thresh_bw, selem=selem)
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
@@ -1157,10 +1150,13 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
         bubbles_bw = highlight_bubble_method(val, bkgd, *args)
         # a3 = time.time()
         # print('3 {0:f} ms.'.format(1000*(a3-a2)))
-        # finds bubbles and assigns IDs to track them, saving to archive
-        frame_labeled = skimage.measure.label(bubbles_bw)
+        # labels bubbles in image (background is 0)
+        # frame_labeled = skimage.measure.label(bubbles_bw)
+        bubbles_bw = basic.cvify(bubbles_bw)
+        _, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubbles_bw)
         # a4 = time.time()
         # print('4 {0:f} ms.'.format(1000*(a4-a3)))
+        # finds bubbles and assigns IDs to track them, saving to archive
         ID_curr = assign_bubbles(frame_labeled, f, bubbles_prev,
                                  bubbles_archive, ID_curr, flow_dir, fps,
                                  pix_per_um, width_border, row_lo, row_hi,
@@ -1209,7 +1205,9 @@ def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
         # processes frame
         bubble = highlight_bubble_method(val, bkgd, *args)
         # labels bubbles
-        frame_labeled, num_labels = skimage.measure.label(bubble, return_num=True)
+        # frame_labeled, num_labels = skimage.measure.label(bubble, return_num=True)
+        bubble = basic.cvify(bubble)
+        num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubble)
         # # ensures that the same number of IDs are provided as objects found
         # assert len(frame_IDs[f]) == num_labels, \
         #     'improc.test_track_bubble() has label mismatch for frame {0:d}.'.format(f) \
