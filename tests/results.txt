@@ -1,6 +1,15 @@
 Results of compare_props_finders.py
 
-TEST 1: Remove Small Objects
+TEST 0: Remove Small Objects
 January 29, 2021:
 remove_small_objects took 0.149 ms with findContours.
 remove_small_objects took 4.550 ms with connectedComponentsWithStats.
+
+TEST 1: Compute Region Props
+January 29, 2021
+Computing region props took 15.463 ms with findContours.
+Computing region props took 13.233 ms with connectedComponentsWithStats.
+
+***But, I can't easily compute ellipse properties (orientation, major/minor
+axes) using connectedComponentsWithStats, so there's a tradeoff between time and
+functionality.

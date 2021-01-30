@@ -116,33 +116,8 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     ----------
     .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
-    # identifies the different objects in the frame
-    num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(frame_bw)
-    # region_props = skimage.measure.regionprops(frame_labeled)
-    # creates dictionaries of properties for each object
-    bubbles_curr = []
-    # records stats of each labeled object; skips 0-label (background)
-    for i in range(1, num_labels):
-        # creates dictionary of bubble properties for one frame, which
-        # can be merged to a Bubble object
-        bubble = {}
-        # switches default (x,y) -> (row, col)
-        bubble['centroid'] = centroids[i][::-1]
-        bubble['area'] = stats[i, cv2.CC_STAT_AREA]
-        # bubble['orientation'] = props.orientation
-        # bubble['major axis'] = props.major_axis_length
-        # bubble['minor axis'] = props.minor_axis_length
-        row_min = stats[i, cv2.CC_STAT_TOP]
-        col_min = stats[i, cv2.CC_STAT_LEFT]
-        row_max = row_min + stats[i, cv2.CC_STAT_HEIGHT]
-        col_max = col_min + stats[i, cv2.CC_STAT_WIDTH]
-        bbox = (row_min, col_min, row_max, col_max)
-        bubble['bbox'] = bbox
-        bubble['frame'] = f
-        bubble['on border'] = is_on_border(bbox,
-              frame_labeled, width_border)
-        # adds dictionary for this bubble to list of bubbles in current frame
-        bubbles_curr += [bubble]
+    # measures region props of each object (hopefully bubbles) in image
+    bubbles_curr = region_props(frame_bw, n_frame=f, width_border=width_border)
 
     # if no bubbles seen in previous frame, assigns bubbles in current frame
     # to new bubble IDs
@@ -570,8 +545,6 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
-    # converts image to uint8 type from bool
-    bubble_bw = bubble_bw
     # fills enclosed holes with white, but leaves open holes black
     bubble_part_filled = fill_holes(bubble_bw)
     # fills in holes that might be cut off at border
@@ -1009,6 +982,110 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
         output = pd.DataFrame(output, columns=columns)
 
     return output
+
+
+def region_props_connected(frame_bw, n_frame=-1, width_border=5):
+    """
+    Computes properties of objects in a binarized image that would otherwise be
+    provided by region_props using an OpenCV hack.
+
+    This version is based on connectedComponentsWithStats.
+    """
+    # identifies the different objects in the frame
+    num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(frame_bw)
+    # region_props = skimage.measure.regionprops(frame_labeled)
+    # creates dictionaries of properties for each object
+    bubbles_curr = []
+    # records stats of each labeled object; skips 0-label (background)
+    for i in range(1, num_labels):
+        # creates dictionary of bubble properties for one frame, which
+        # can be merged to a Bubble object
+        bubble = {}
+        # switches default (x,y) -> (row, col)
+        bubble['centroid'] = centroids[i][::-1]
+        bubble['area'] = stats[i, cv2.CC_STAT_AREA]
+        # bubble['orientation'] = props.orientation
+        # bubble['major axis'] = props.major_axis_length
+        # bubble['minor axis'] = props.minor_axis_length
+        row_min = stats[i, cv2.CC_STAT_TOP]
+        col_min = stats[i, cv2.CC_STAT_LEFT]
+        row_max = row_min + stats[i, cv2.CC_STAT_HEIGHT]
+        col_max = col_min + stats[i, cv2.CC_STAT_WIDTH]
+        bbox = (row_min, col_min, row_max, col_max)
+        bubble['bbox'] = bbox
+
+        if n_frame >= 0:
+            bubble['frame'] = n_frame
+
+        bubble['on border'] = is_on_border(bbox,
+              frame_labeled, width_border)
+        # adds dictionary for this bubble to list of bubbles in current frame
+        bubbles_curr += [bubble]
+
+    return bubbles_curr
+
+
+def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
+    """
+    Computes properties of objects in a binarized image that would otherwise be
+    provided by region_props using an OpenCV hack.
+
+    This version is based on findContours.
+    """
+    # computes contours of all objects in image
+    _, cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # creates dictionaries of properties for each object
+    bubbles_curr = []
+
+    # records stats of each labeled object; skips 0-label (background)
+    for i, cnt in enumerate(cnts):
+        # creates dictionary of bubble properties for one frame, which
+        # can be merged to a Bubble object
+        bubble = {}
+
+        # computes moments of contour
+        M = cv2.moments(cnt)
+
+        # computes centroid
+        #https://docs.opencv.org/master/dd/d49/tutorial_py_contour_features.html
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+        bubble['centroid'] = (cy, cx)
+
+        # computes number of pixels in object (area)
+        #https://docs.opencv.org/master/d1/d32/tutorial_py_contour_properties.html
+        mask = np.zeros(frame_bw.shape, np.uint8)
+        cv2.drawContours(mask, [cnt], 0, 255, -1)
+        num_pixels = cv2.findNonZero(mask)
+        bubble['area'] = num_pixels
+
+        # fits ellipse to compute major and minor axes, orientation
+        if ellipse:
+            (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
+            bubble['orientation'] = angle
+            bubble['major axis'] = MA
+            bubble['minor axis'] = ma
+
+        # computes bounding box
+        col_min, row_min, w, h = cv2.boundingRect(cnt)
+        row_max = row_min + h
+        col_max = col_min + w
+        bbox = (row_min, col_min, row_max, col_max)
+        bubble['bbox'] = bbox
+
+        # saves frame number
+        if n_frame >= 0:
+            bubble['frame'] = n_frame
+
+        # checks if object is on the border of the frame
+        bubble['on border'] = is_on_border(bbox,
+              frame_bw, width_border)
+
+        # adds dictionary for this bubble to list of bubbles in current frame
+        bubbles_curr += [bubble]
+
+    return bubbles_curr
 
 
 def remove_small_objects(im, min_size):

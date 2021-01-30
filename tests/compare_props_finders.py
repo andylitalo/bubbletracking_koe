@@ -16,15 +16,28 @@ s_2_ms = 1000
 
 
 
+# tests to run
+tests_to_run = [1]
 # PARAMETERS
-min_size = 20 # [pixels]
 input_filepath = 'input.txt'
 
 
-###################### TEST 1: REMOVE SMALL OBJECTS ############################
-# find contours method
-time_find = lib.test_remove_small_objects(True, input_filepath, min_size)
-print('remove_small_objects took {0:.3f} ms with findContours.'.format(s_2_ms*time_find))
-# connectedComponentsWithStats method
-time_connected = lib.test_remove_small_objects(False, input_filepath, min_size)
-print('remove_small_objects took {0:.3f} ms with connectedComponentsWithStats.'.format(s_2_ms*time_connected))
+###################### TEST 0: REMOVE SMALL OBJECTS ############################
+
+if 0 in tests_to_run:
+    # find contours method
+    ctr, time_find = lib.test_remove_small_objects(True, input_filepath)
+    print('remove_small_objects took {0:.3f} ms with findContours on average over {1:d} iterations.'.format(s_2_ms*time_find, ctr))
+    # connectedComponentsWithStats method
+    ctr_, time_connected = lib.test_remove_small_objects(False, input_filepath)
+    print('remove_small_objects took {0:.3f} ms with connectedComponentsWithStats over {1:d} iterations.'.format(s_2_ms*time_connected, ctr))
+
+#################### TEST 1: COMPUTE REGION PROPS ##############################
+
+if 1 in tests_to_run:
+    # find contours method
+    ctr, time_find = lib.test_region_props(True, input_filepath)
+    print('Computing region props took {0:.3f} ms with findContours over {1:d} iterations.'.format(s_2_ms*time_find))
+    # connectedComponentsWithStats method
+    ctr, time_connected = lib.test_region_props(False, input_filepath)
+    print('Computing region props took {0:.3f} ms with connectedComponentsWithStats over {1:d} iterations.'.format(s_2_ms*time_connected, ctr))
