@@ -12,15 +12,19 @@ Date: January 29, 2021
 
 import lib
 
+s_2_ms = 1000
+
 
 
 # PARAMETERS
 min_size = 20 # [pixels]
-input_filepath = '../input/input.txt'
+input_filepath = 'input.txt'
 
 
 ###################### TEST 1: REMOVE SMALL OBJECTS ############################
 # find contours method
-lib.test_remove_small_objects(True, input_filepath, min_size)
+time_find = lib.test_remove_small_objects(True, input_filepath, min_size)
+print('remove_small_objects took {0:.3f} ms with findContours.'.format(s_2_ms*time_find))
 # connectedComponentsWithStats method
-lib.test_remove_small_objects(False, input_filepath, min_size)
+time_connected = lib.test_remove_small_objects(False, input_filepath, min_size)
+print('remove_small_objects took {0:.3f} ms with connectedComponentsWithStats.'.format(s_2_ms*time_connected))

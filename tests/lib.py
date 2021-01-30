@@ -5,11 +5,14 @@ Author: Andy Ylitalo
 Date: January 29, 2021
 """
 
+# imports standard libraries
+import cv2
+import time
+
+# adds filepath to custom libraries
 import sys
 sys.path.append('../src/')
-
-import cv2
-
+# imports custom libraries
 import cvimproc.improc as improc
 import cvimproc.basic as basic
 import genl.readin as readin
@@ -31,6 +34,9 @@ def test_remove_small_objects(find_contours, input_filepath, min_size):
     # computes background with median filtering
     bkgd = improc.compute_bkgd_med(vid_path, num_frames=num_frames_for_bkgd)
 
+    # measures the time
+    ctr = 0
+    time_total = 0
     # loops through frames of video
     for f in range(start, end, every):
         # loads frame from video file
@@ -45,8 +51,16 @@ def test_remove_small_objects(find_contours, input_filepath, min_size):
         thresh_bw = improc.thresh_im(im_diff, th)
         # smooths out thresholded image
         closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
+
+        # measures time to remove small objects
+        time_start = time.time()
         # removes small objects
         if find_contours:
             bubble_bw = improc.remove_small_objects_findContours(closed_bw, min_size_th)
         else:
             bubble_bw = improc.remove_small_objects(closed_bw, min_size_th)
+
+        time_total += (time.time() - time_start)
+        ctr += 1
+
+    return time_total / float(ctr)

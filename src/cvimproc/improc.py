@@ -1011,14 +1011,15 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
-def remove_small_objects_findContours(im, min_size):
+def remove_small_objects(im, min_size):
     """
     Removes small objects in image based on Green's formula from
     multivariable calculus, briefly described here:
     https://answers.opencv.org/question/58/area-of-a-single-pixel-object-in-opencv/#126
     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
 
-    On a few test arrays, it appears to be slower than remove_small_objects
+    Appears to be faster than with connectedComponentsWithStats (see
+    compare_props_finders.py).
 
     Based on response from nathancy @
     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
@@ -1027,41 +1028,40 @@ def remove_small_objects_findContours(im, min_size):
     _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     for c in cnts:
         area = cv2.contourArea(c)
-        print(area)
         if area < min_size:
             cv2.drawContours(im, [c], -1, (0,0,0), -1)
 
     return im
 
 
-def remove_small_objects(im, min_size):
-    """
-    Removes small objects in image based on number of pixels in the object.
-    Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
-    Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
-
-    Appears to be faster than the preceding method (commented out).
-
-    Parameters
-    ----------
-    im : numpy array of uint8s
-        image from which to remove small objects
-    """
-    # formats image for OpenCV
-    im = basic.cvify(im)
-    # computes maximum value, casting to uint8 type for OpenCV functions
-    max_val = np.max(im)
-    # finds and labels objects in image--note im_labeled is int32 type
-    n_labels, im_labeled, stats, _ = cv2.connectedComponentsWithStats(im)
-    # loops through non-zero labels (i.e., objects--bkgd is labeled 0)
-    for i in range(1, n_labels):
-        area = stats[i, cv2.CC_STAT_AREA]
-        if area < min_size:
-            im_labeled[np.where(im_labeled==i)] = 0
-        else:
-            im_labeled[np.where(im_labeled==i)] = max_val
-
-    return im_labeled.astype('uint8')
+# def remove_small_objects_connected(im, min_size):
+#     """
+#     Removes small objects in image based on number of pixels in the object.
+#     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
+#     Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
+#
+#     Appears to be slower than with findContours (see compare_props_finders.py).
+#
+#     Parameters
+#     ----------
+#     im : numpy array of uint8s
+#         image from which to remove small objects
+#     """
+#     # formats image for OpenCV
+#     im = basic.cvify(im)
+#     # computes maximum value, casting to uint8 type for OpenCV functions
+#     max_val = np.max(im)
+#     # finds and labels objects in image--note im_labeled is int32 type
+#     n_labels, im_labeled, stats, _ = cv2.connectedComponentsWithStats(im)
+#     # loops through non-zero labels (i.e., objects--bkgd is labeled 0)
+#     for i in range(1, n_labels):
+#         area = stats[i, cv2.CC_STAT_AREA]
+#         if area < min_size:
+#             im_labeled[np.where(im_labeled==i)] = 0
+#         else:
+#             im_labeled[np.where(im_labeled==i)] = max_val
+#
+#     return im_labeled.astype('uint8')
 
 
 def scale_by_brightfield(im, bf):
