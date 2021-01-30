@@ -993,7 +993,6 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     """
     # identifies the different objects in the frame
     num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(frame_bw)
-    # region_props = skimage.measure.regionprops(frame_labeled)
     # creates dictionaries of properties for each object
     bubbles_curr = []
     # records stats of each labeled object; skips 0-label (background)
@@ -1023,6 +1022,13 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
         bubbles_curr += [bubble]
 
     return bubbles_curr
+
+
+def region_props(frame_bw, n_frame=-1, width_border=5):
+    """
+    Computes properties of objects in a binarized image using OpenCV.
+    """
+    return region_props_find(frame_bw, n_frame=n_frame, width_border=width_border)
 
 
 def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
@@ -1090,9 +1096,15 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
 
 def remove_small_objects(im, min_size):
     """
-    Removes small objects in image based on Green's formula from
-    multivariable calculus, briefly described here:
-    https://answers.opencv.org/question/58/area-of-a-single-pixel-object-in-opencv/#126
+    Removes small objects in an image.
+    Uses the findContours version because the tests suggest that it is faster.
+    """
+    return remove_small_objects_find(im, min_size)
+
+
+def remove_small_objects_find(im, min_size):
+    """
+    Removes small objects in image with OpenCV's findContours.
     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
 
     Appears to be faster than with connectedComponentsWithStats (see
@@ -1111,34 +1123,34 @@ def remove_small_objects(im, min_size):
     return im
 
 
-# def remove_small_objects_connected(im, min_size):
-#     """
-#     Removes small objects in image based on number of pixels in the object.
-#     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
-#     Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
-#
-#     Appears to be slower than with findContours (see compare_props_finders.py).
-#
-#     Parameters
-#     ----------
-#     im : numpy array of uint8s
-#         image from which to remove small objects
-#     """
-#     # formats image for OpenCV
-#     im = basic.cvify(im)
-#     # computes maximum value, casting to uint8 type for OpenCV functions
-#     max_val = np.max(im)
-#     # finds and labels objects in image--note im_labeled is int32 type
-#     n_labels, im_labeled, stats, _ = cv2.connectedComponentsWithStats(im)
-#     # loops through non-zero labels (i.e., objects--bkgd is labeled 0)
-#     for i in range(1, n_labels):
-#         area = stats[i, cv2.CC_STAT_AREA]
-#         if area < min_size:
-#             im_labeled[np.where(im_labeled==i)] = 0
-#         else:
-#             im_labeled[np.where(im_labeled==i)] = max_val
-#
-#     return im_labeled.astype('uint8')
+def remove_small_objects_connected(im, min_size):
+    """
+    Removes small objects in image based on number of pixels in the object.
+    Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
+    Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
+
+    Appears to be slower than with findContours (see compare_props_finders.py).
+
+    Parameters
+    ----------
+    im : numpy array of uint8s
+        image from which to remove small objects
+    """
+    # formats image for OpenCV
+    im = basic.cvify(im)
+    # computes maximum value, casting to uint8 type for OpenCV functions
+    max_val = np.max(im)
+    # finds and labels objects in image--note im_labeled is int32 type
+    n_labels, im_labeled, stats, _ = cv2.connectedComponentsWithStats(im)
+    # loops through non-zero labels (i.e., objects--bkgd is labeled 0)
+    for i in range(1, n_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area < min_size:
+            im_labeled[np.where(im_labeled==i)] = 0
+        else:
+            im_labeled[np.where(im_labeled==i)] = max_val
+
+    return im_labeled.astype('uint8')
 
 
 def scale_by_brightfield(im, bf):
@@ -1221,25 +1233,19 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
 
     # extracts fps from video filepath
     fps = fn.parse_vid_path(vid_path)['fps']
+
     # loops through frames of video
     for f in range(start, end, every):
-        # a0 = time.time()
+
         # loads frame from video file
         frame, _ = basic.load_frame(vid_path, f)
-        # a1 = time.time()
-        # print('1 {0:f} ms.'.format(1000*(a1-a0)))
+
         # extracts value channel of frame--including selem ruins segmentation
         val = basic.get_val_channel(frame)
-        # a2 = time.time()
-        # print('2 {0:f} ms.'.format(1000*(a2-a1)))
+
         # highlights bubbles in the given frame
         bubbles_bw = highlight_bubble_method(val, bkgd, *args)
-        # a3 = time.time()
-        # print('3 {0:f} ms.'.format(1000*(a3-a2)))
-        # labels bubbles in image (background is 0)
-        # frame_labeled = skimage.measure.label(bubbles_bw)
-        # a4 = time.time()
-        # print('4 {0:f} ms.'.format(1000*(a4-a3)))
+
         # finds bubbles and assigns IDs to track them, saving to archive
         ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev,
                                  bubbles_archive, ID_curr, flow_dir, fps,

@@ -12,4 +12,5 @@ Computing region props took 13.233 ms with connectedComponentsWithStats.
 
 ***But, I can't easily compute ellipse properties (orientation, major/minor
 axes) using connectedComponentsWithStats, so there's a tradeoff between time and
-functionality.
+functionality. Because the difference in execution time is small (~15%), I will
+go with the improved functionality of findContours for now.
