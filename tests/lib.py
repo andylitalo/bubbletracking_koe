@@ -8,6 +8,7 @@ Date: January 29, 2021
 # imports standard libraries
 import cv2
 import time
+import numpy as np
 
 # adds filepath to custom libraries
 import sys
@@ -17,6 +18,40 @@ import cvimproc.improc as improc
 import cvimproc.basic as basic
 import genl.readin as readin
 
+
+
+
+def test_hysteresis_threshold():
+    """
+    Tests custom hysteresis threshold to replace that of scikit-image. This one
+    only uses OpenCV and numpy methods.
+    """
+    # test array
+    a = np.array([[6,6,7,4,2,3,1],
+                [6,12,8,5,3,4,2],
+                [6,6,7,4,2,7,1],
+                [3,3,3,3,3,2,1],
+                [2,2,2,2,2,2,2],
+                [1,1,1,6,2,3,2],
+                [1,1,1,1,1,1,2]], dtype='uint8')
+    # known output
+    a_desired = np.array([[255, 255, 255, 255,   0,   0,   0],
+                           [255, 255, 255, 255,   0,   0,   0],
+                           [255, 255, 255, 255,   0,   0,   0],
+                           [  0,   0,   0,   0,   0,   0,   0],
+                           [  0,   0,   0,   0,   0,   0,   0],
+                           [  0,   0,   0,   0,   0,   0,   0],
+                           [  0,   0,   0,   0,   0,   0,   0]], dtype='uint8')
+    # specifies thresholds
+    th_lo = 3
+    th_hi = 7
+
+    # performs hysteresis thresholding
+    a_hyst = improc.hysteresis_threshold(a, th_lo, th_hi)
+    # reports result
+    passed = np.all(a_hyst == a_desired)
+
+    return passed
 
 
 def test_region_props(find_contours, input_filepath):

@@ -13,12 +13,6 @@ import time
 # imports image-processing-specific libraries
 import cv2
 
-# TODO: remove these libraries and replace calls with opencv
-import skimage.color
-import skimage.segmentation
-import skimage.feature
-import skimage.filters
-
 # imports custom image processing libraries
 import cvimproc.mask as mask
 import cvimproc.basic as basic
@@ -537,8 +531,9 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
     # thresholds image to become black-and-white
-    thresh_bw = skimage.filters.apply_hysteresis_threshold(\
-                        im_diff, th_lo, th_hi)
+    # thresh_bw = skimage.filters.apply_hysteresis_threshold(\
+                        # im_diff, th_lo, th_hi)
+    thresh_bw = hysteresis_threshold(im_diff, th_lo, th_hi)
 
     # smooths out thresholded image
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
@@ -589,8 +584,9 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
-    thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
-                        im_diff, th_lo, th_hi)
+    # thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
+    #                     im_diff, th_lo, th_hi)
+    thresh_bw_2 = hystersis_threshold(im_diff, th_lo, th_hi)
     thresh_bw_2 = basic.cvify(thresh_bw_2)
     # smooths out thresholded image
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
@@ -641,6 +637,33 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
         return im_diff, thresh_bw, closed_bw, bubble_bw, bubble
     else:
         return bubble
+
+
+def hysteresis_threshold(im, th_lo, th_hi):
+    """
+    Applies a hysteresis threshold using only OpenCV methods to replace the
+    method from scikit-image, skimage.filters.hysteresis_threshold.
+
+    Lightly adapted from:
+    https://stackoverflow.com/questions/47311595/opencv-hysteresis-thresholding-implementation
+    """
+    _, thresh_upper = cv2.threshold(im, th_hi, 128, cv2.THRESH_BINARY)
+    _, thresh_lower = cv2.threshold(im, th_lo, 128, cv2.THRESH_BINARY)
+
+    # finds the contours to get the seed from which to start the floodfill
+    _, cnts_upper, _ = cv2.findContours(thresh_upper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    # Makes brighter the regions that contain a seed
+    for cnt in cnts_upper:
+        # C++ implementation
+        # cv2.floodFill(threshLower, cnt[0], 255, 0, 2, 2, CV_FLOODFILL_FIXED_RANGE)
+        # Python implementation
+        cv2.floodFill(thresh_lower, None, tuple(cnt[0][0]), 255, 2, 2, cv2.FLOODFILL_FIXED_RANGE)
+
+    # thresholds the image again to make black the unfilled regions
+    _, im_thresh = cv2.threshold(thresh_lower, 200, 255, cv2.THRESH_BINARY)
+
+    return im_thresh
 
 
 def is_color(im):
