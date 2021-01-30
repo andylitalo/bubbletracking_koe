@@ -14,7 +14,6 @@ import time
 import cv2
 
 # TODO: remove these libraries and replace calls with opencv
-import skimage.measure
 import skimage.color
 import skimage.segmentation
 import skimage.feature
@@ -371,7 +370,7 @@ def find_label(frame_labeled, rc, cc):
     Parameters
     ----------
     frame_labeled : (M x N) numpy array of uint8
-        Image of objects labeled by skimage.color.label2rgb
+        Image of objects labeled by 1-indexed integers (background is 0)
     rc : float
         Row of the centroid of the object whose label is desired.
     cc : float
@@ -1263,94 +1262,3 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
         return bubbles_archive, frame_IDs
     else:
         return bubbles_archive
-
-
-def test_track_bubble(vid_path, bkgd, highlight_bubble_method, args,
-                      pix_per_um, bubbles, frame_IDs,
-                      width_border=10, start=0,
-                      end=-1, every=1, num_colors=10, time_sleep=2,
-                      brightness=3.0, fig_size_red=0.5, save_png_folder=None,
-                      show_fig=True):
-    """
-    """
-#    # creates colormap
-#    cmap = cm.get_cmap('Spectral')
-
-    # chooses end frame to be last frame if given as -1
-    if end == -1:
-        end = basic.count_frames(vid_path)
-
-    # creates figure for displaying frames with labeled bubbles
-    p, im = pltim.format_frame(pltim.bokehfy(bkgd), pix_per_um, fig_size_red,
-                              brightness=brightness)
-    if show_fig:
-        show(p, notebook_handle=True)
-    # loops through frames
-    for f in range(start, end, every):
-
-        print('Analyzing frame # {0:d}.'.format(f))
-        # gets value channel of frame for processing
-        frame, _ = basic.load_frame(vid_path, f)
-        val = basic.get_val_channel(frame)
-        # processes frame
-        bubble = highlight_bubble_method(val, bkgd, *args)
-        # labels bubbles
-        # frame_labeled, num_labels = skimage.measure.label(bubble, return_num=True)
-        bubble = basic.cvify(bubble)
-        num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubble)
-        # # ensures that the same number of IDs are provided as objects found
-        # assert len(frame_IDs[f]) == num_labels, \
-        #     'improc.test_track_bubble() has label mismatch for frame {0:d}.'.format(f) \
-        #     + 'num_labels = {0:d} and number of frame_IDs = {1:d}' \
-        #         .format(num_labels, len(frame_IDs[f]))
-        # assigns IDs to pixels of each bubble--sort of helps with color-coding
-        IDs = frame_IDs[f]
-        frame_relabeled = np.zeros(frame_labeled.shape)
-        for ID in IDs:
-            # finds label associated with the bubble with this id
-            rc, cc = bubbles[ID].get_prop('centroid', f)
-            label = find_label(frame_labeled, rc, cc)
-            # re-indexes from 1-255 for proper coloration by label2rgb
-            # (so 0 can be bkgd)
-            new_ID = (ID % 255) + 1
-            frame_relabeled[frame_labeled==label] = new_ID
-
-        frame_adj = basic.adjust_brightness(frame, brightness)
-        frame_colored = skimage.color.label2rgb(frame_relabeled, image=frame_adj,
-                                                bg_label=0)
-
-        # converts frame from one-scaled to 255-scaled
-        frame_disp = fn.one_2_uint8(frame_colored)
-
-        # prints ID number of bubble to upper-right of centroid
-        for ID in IDs:
-            # does not print ID number if in the outer stream
-            # if bubbles[ID].get_props('inner stream') == 0:
-            #     continue
-            # shows number ID of bubble in image
-            centroid = bubbles[ID].get_prop('centroid', f)
-            x = int(centroid[1])
-            y = int(centroid[0])
-            # text of number ID is black if on the border of the image, white o/w
-            white = (255, 255, 255)
-            black = (0, 0, 0)
-            # colors label black if bubble is on the border or in outer stream
-            on_border = bubbles[ID].get_prop('on border', f)
-            outer_stream = bubbles[ID].get_props('inner stream') == 0
-            if on_border or outer_stream:
-                color = black
-            else:
-                color = white
-            frame_disp = cv2.putText(img=frame_disp, text=str(ID), org=(x, y),
-                                    fontFace=0, fontScale=2, color=color,
-                                    thickness=3)
-        im.data_source.data['image']=[pltim.bokehfy(frame_disp)]
-        push_notebook()
-        time.sleep(time_sleep)
-
-        # saves images
-        if save_png_folder is not None:
-            export_png(p, filename=save_png_folder + 'frame_{0:d}.png'.format(f),
-                       webdriver=web_driver)
-
-    return p
