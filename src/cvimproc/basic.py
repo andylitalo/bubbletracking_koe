@@ -1,6 +1,8 @@
 """
-basic.py contains basic image-processing codes that are used by both improc.py
-as vid.py
+basic.py contains basic image-processing codes that are used by improc.py,
+mask.py, and vid.py, and other libraries that call improc.py. By storing them in
+this separate library, the libraries will not call each other and confuse
+Python.
 
 Author: Andy Ylitalo
 Date: January 28, 2021
@@ -9,7 +11,7 @@ Date: January 28, 2021
 import cv2
 import numpy as np
 
-import cvimproc.mask as mask
+# imports custom libraries
 import genl.fn as fn
 
 def adjust_brightness(im, brightness, sat=255):
@@ -171,6 +173,36 @@ def cvify(im):
                                                                 str(im.dtype)))
 
     return im
+
+
+def fill_holes(im_bw):
+    """
+    Fills holes in image solely using OpenCV to replace
+    `fill_holes` for porting to C++.
+
+    Based on:
+     https://learnopencv.com/filling-holes-in-an-image-using-opencv-python-c/
+
+    Parameters
+    ----------
+    im_bw : numpy array of uint8
+        Image whose holes are to be filled. 0s and 255s
+
+    Returns
+    -------
+    im : numpy array of uint8
+        Image with holes filled, including those cut off at border. 0s and 255s
+    """
+    # formats image for OpenCV
+    im_bw = cvify(im_bw)
+    # fills bkgd with white (assuming origin is contiguously connected with bkgd)
+    cv2.floodFill(im_bw, None, (0,0), 255)
+    # inverts image (black -> white and white -> black)
+    im_inv = cv2.bitwise_not(im_bw)
+    # combines inverted image with original image to fill holes
+    im_filled = (im_inv | im_bw)
+
+    return im_filled
 
 
 def get_val_channel(frame, selem=None):

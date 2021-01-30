@@ -92,21 +92,21 @@ def test_region_props(find_contours, input_filepath):
         bubble_bw = improc.remove_small_objects(closed_bw, min_size_th)
 
         # fills enclosed holes with white, but leaves open holes black
-        bubble_part_filled = improc.fill_holes(bubble_bw)
+        bubble_part_filled = basic.fill_holes(bubble_bw)
         # fills in holes that might be cut off at border
         frame_bw = improc.frame_and_fill(bubble_part_filled, width_border)
 
         # measures time to compute region props
         time_start = time.time()
         if find_contours:
-            _ = improc.region_props_find(frame_bw, ellipse=False)
+            bubbles = improc.region_props_find(frame_bw, ellipse=False)
         else:
-            _ = improc.region_props_connected(frame_bw)
+            bubbles = improc.region_props_connected(frame_bw)
 
         time_total += (time.time() - time_start)
         ctr += 1
 
-    return ctr, time_total / float(ctr)
+    return bubbles, ctr, time_total / float(ctr)
 
 
 

@@ -117,6 +117,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     if len(bubbles_prev) == 0:
         for i in range(len(bubbles_curr)):
             # only adds large bubbles
+            print(bubbles_curr[i]['area'])
             if bubbles_curr[i]['area'] >= min_size_reg:
                 bubbles_prev[ID_curr] = bubbles_curr[i]
                 ID_curr += 1
@@ -175,7 +176,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
             # also ignores pairings where the second bubble is upstream
             # these pairings are marked with a penalty that is
             # larger than the largest distance across the frame
-            d_longest = np.linalg.norm(frame_labeled.shape)
+            d_longest = np.linalg.norm(frame_bw.shape)
             if d_mat[row, col] > d_longest:
                 continue
 
@@ -222,7 +223,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     for ID in bubbles_prev.keys():
         # creates new ordered dictionary of bubbles if new bubble
         if ID == len(bubbles_archive):
-            bubbles_archive[ID] = Bubble(ID, fps, frame_labeled.shape, flow_dir,
+            bubbles_archive[ID] = Bubble(ID, fps, frame_bw.shape, flow_dir,
                            pix_per_um, props_raw=bubbles_prev[ID])
         elif ID < len(bubbles_archive):
             bubbles_archive[ID].add_props(bubbles_prev[ID])
@@ -391,36 +392,6 @@ def find_label(frame_labeled, rc, cc):
     return -1
 
 
-def fill_holes(im_bw):
-    """
-    Fills holes in image solely using OpenCV to replace
-    `fill_holes` for porting to C++.
-
-    Based on:
-     https://learnopencv.com/filling-holes-in-an-image-using-opencv-python-c/
-
-    Parameters
-    ----------
-    im_bw : numpy array of uint8
-        Image whose holes are to be filled. 0s and 255s
-
-    Returns
-    -------
-    im : numpy array of uint8
-        Image with holes filled, including those cut off at border. 0s and 255s
-    """
-    # formats image for OpenCV
-    im_bw = basic.cvify(im_bw)
-    # fills bkgd with white (assuming origin is contiguously connected with bkgd)
-    cv2.floodFill(im_bw, None, (0,0), 255)
-    # inverts image (black -> white and white -> black)
-    im_inv = cv2.bitwise_not(im_bw)
-    # combines inverted image with original image to fill holes
-    im_filled = (im_inv | im_bw)
-
-    return im_filled
-
-
 def frame_and_fill(im, w):
     """
     Frames image with border to fill in holes cut off at the edge. Without
@@ -454,7 +425,7 @@ def frame_and_fill(im, w):
     # fills in open space in the middle of the bubble that might not get
     # filled if bubble is on the edge of the frame (because then that
     # open space is not completely bounded)
-    im_filled = fill_holes(im_framed)
+    im_filled = basic.fill_holes(im_framed)
     im = mask_im(im_filled, np.logical_not(mask_frame_sides))
 
     return im
@@ -540,7 +511,7 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = fill_holes(bubble_bw)
+    bubble_part_filled = basic.fill_holes(bubble_bw)
     # fills in holes that might be cut off at border
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
@@ -580,20 +551,20 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     #                                                     min_size=min_size_th)
     bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
     # fills enclosed holes with white, but leaves open holes black
-    bubble_1 = fill_holes(bubble_bw_1)
+    bubble_1 = basic.fill_holes(bubble_bw_1)
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
     # thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
     #                     im_diff, th_lo, th_hi)
-    thresh_bw_2 = hystersis_threshold(im_diff, th_lo, th_hi)
+    thresh_bw_2 = hysteresis_threshold(im_diff, th_lo, th_hi)
     thresh_bw_2 = basic.cvify(thresh_bw_2)
     # smooths out thresholded image
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = fill_holes(bubble_bw_2)
+    bubble_part_filled = basic.fill_holes(bubble_bw_2)
     # fills in holes that might be cut off at border
     bubble_2 = frame_and_fill(bubble_part_filled, width_border)
 
@@ -629,7 +600,7 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = fill_holes(bubble_bw)
+    bubble_part_filled = basic.fill_holes(bubble_bw)
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
     # returns intermediate steps if requested.
@@ -1006,6 +977,14 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
+def region_props(frame_bw, n_frame=-1, width_border=5):
+    """
+    Computes properties of objects in a binarized image using OpenCV.
+    """
+    frame_bw = basic.cvify(frame_bw)
+    return region_props_connected(frame_bw, n_frame=n_frame, width_border=width_border)
+
+
 def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     """
     Computes properties of objects in a binarized image that would otherwise be
@@ -1025,9 +1004,6 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
         # switches default (x,y) -> (row, col)
         bubble['centroid'] = centroids[i][::-1]
         bubble['area'] = stats[i, cv2.CC_STAT_AREA]
-        # bubble['orientation'] = props.orientation
-        # bubble['major axis'] = props.major_axis_length
-        # bubble['minor axis'] = props.minor_axis_length
         row_min = stats[i, cv2.CC_STAT_TOP]
         col_min = stats[i, cv2.CC_STAT_LEFT]
         row_max = row_min + stats[i, cv2.CC_STAT_HEIGHT]
@@ -1046,13 +1022,6 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     return bubbles_curr
 
 
-def region_props(frame_bw, n_frame=-1, width_border=5):
-    """
-    Computes properties of objects in a binarized image using OpenCV.
-    """
-    return region_props_find(frame_bw, n_frame=n_frame, width_border=width_border)
-
-
 def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     """
     Computes properties of objects in a binarized image that would otherwise be
@@ -1064,7 +1033,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     _, cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
-    bubbles_curr = []
+    bubbles = []
 
     # records stats of each labeled object; skips 0-label (background)
     for i, cnt in enumerate(cnts):
@@ -1085,15 +1054,10 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
         #https://docs.opencv.org/master/d1/d32/tutorial_py_contour_properties.html
         mask = np.zeros(frame_bw.shape, np.uint8)
         cv2.drawContours(mask, [cnt], 0, 255, -1)
-        num_pixels = cv2.findNonZero(mask)
+        # records length of list of nonzero pixels
+        # TODO -- VALIDATE! Doesn't seem to work properly for counting pixels
+        num_pixels = len(cv2.findNonZero(mask))
         bubble['area'] = num_pixels
-
-        # fits ellipse to compute major and minor axes, orientation
-        if ellipse:
-            (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
-            bubble['orientation'] = angle
-            bubble['major axis'] = MA
-            bubble['minor axis'] = ma
 
         # computes bounding box
         col_min, row_min, w, h = cv2.boundingRect(cnt)
@@ -1101,6 +1065,22 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
         col_max = col_min + w
         bbox = (row_min, col_min, row_max, col_max)
         bubble['bbox'] = bbox
+
+        # fits ellipse to compute major and minor axes, orientation; needs at
+        # least 5 points to fit ellipse
+        if ellipse:
+            # if enough points to fit ellipse, let OpenCV take care of the props
+            if len(cnt) >= 5:
+                (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
+            # if fewer than 5 points, ad hoc estimates
+            else:
+                MA = max(w, h)
+                ma = min(w, h)
+                angle = 0
+            # stores results
+            bubble['orientation'] = angle
+            bubble['major axis'] = MA
+            bubble['minor axis'] = ma
 
         # saves frame number
         if n_frame >= 0:
@@ -1111,9 +1091,9 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
               frame_bw, width_border)
 
         # adds dictionary for this bubble to list of bubbles in current frame
-        bubbles_curr += [bubble]
+        bubbles += [bubble]
 
-    return bubbles_curr
+    return bubbles
 
 
 def remove_small_objects(im, min_size):

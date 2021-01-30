@@ -12,12 +12,12 @@ in this document so libraries with legacy code can still run.
 import numpy as np
 import pandas as pd
 import cv2
-import scipy.ndimage
 import pickle as pkl
 
 
 # imports custom libraries
 import genl.geo as geo
+import cvimproc.basic as basic
 
 
 
@@ -127,7 +127,7 @@ def get_mask(X,Y,imageShape):
     # Set boundary provided by x,y values to 255 (white)
     mask[Y,X] = 255
     # Fill in the boundary (output is a boolean array)
-    mask = scipy.ndimage.morphology.binary_fill_holes(mask)
+    mask = basic.fill_holes(mask)
 
     return mask
 

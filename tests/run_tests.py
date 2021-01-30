@@ -51,10 +51,12 @@ if 0 in tests_to_run:
 
 if 1 in tests_to_run:
     # find contours method
-    ctr, time_find = lib.test_region_props(True, input_filepath)
-    print('Computing region props took {0:.3f} ms with findContours over {1:d} iterations.'.format(s_2_ms*time_find))
+    bubbles, ctr, time_find = lib.test_region_props(True, input_filepath)
+    print('Computing region props took {0:.3f} ms with findContours over {1:d} iterations.'.format(s_2_ms*time_find, ctr))
+    for bubble in bubbles:
+        print(bubble['area'])
     # connectedComponentsWithStats method
-    ctr, time_connected = lib.test_region_props(False, input_filepath)
+    bubbles, ctr, time_connected = lib.test_region_props(False, input_filepath)
     print('Computing region props took {0:.3f} ms with connectedComponentsWithStats over {1:d} iterations.'.format(s_2_ms*time_connected, ctr))
 
 ################# TEST 2: VERIFY CUSTOM HYSTERSIS THRESHOLDING ALGO ############
