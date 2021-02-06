@@ -97,7 +97,14 @@ def main():
         bkgd = data_prev['metadata']['bkgd']
     else:
         # computes background with median filtering
+        bkgd = improc.compute_bkgd_med_thread(vid_path,
+            num_frames=num_frames_for_bkgd,
+            crop_y=row_lo,
+            crop_height=row_hi-row_lo)
+        '''
+        # old method
         bkgd = improc.compute_bkgd_med(vid_path, num_frames=num_frames_for_bkgd)
+        '''
 
     # computes pressure drop [Pa], inner stream radius [m], and max velocity
     #  [m/s] for Poiseuille sheath flow

@@ -26,6 +26,9 @@ import cvimproc.pltim as pltim
 # imports custom classes (with reload clauses)
 from classes.classes import Bubble, FileVideoStream
 
+# import custom opencv video processing methods
+import cvvidproc
+
 ############################# METHOD DEFINITIONS ##############################
 
 def average_rgb(im):
@@ -352,6 +355,41 @@ def compute_bkgd_med(vid_path, num_frames=100):
 
     return bkgd_med
 
+def compute_bkgd_med_thread(vid_path, num_frames=100, crop_x=0, crop_y=0, crop_width=0, crop_height=0):
+    """
+    Calls multithreaded bkgd algo.
+    """
+    # computes the median
+    vidpack = cvvidproc.VidBgPack(
+        vid_path = vid_path,
+        bg_algo = 'hist',
+        batch_size = cvvidproc.WorkerThreadsFromMax(-1), #get worker threads automatically 
+        frame_limit = num_frames,
+        grayscale = True,
+        crop_x = crop_x,
+        crop_y = crop_y,
+        crop_width = crop_width, #(default = 0)
+        crop_height = crop_height, #(default = 0)
+        horizontal_buffer_pixels = 0,
+        vertical_buffer_pixels = 0,
+        token_storage_limit = 200,
+        result_storage_limit = 200,
+        print_timing_report = True)
+
+    print('getting video background')
+    start_time = time.time()
+
+    bkgd_med = cvvidproc.GetVideoBackground(vidpack)
+
+    end_time = time.time()
+    print('video background obtained ({0:f} s)'.format(end_time - start_time))
+
+    # takes value channel if color image provided
+    if len(bkgd_med.shape) == 3:
+        bkgd_med = get_val_channel(bkgd_med)
+
+    return bkgd_med
+
 
 def find_label(frame_labeled, rc, cc):
     """
@@ -570,8 +608,8 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # merges images to create final image and masks result
     bubble = np.logical_or(bubble_1, bubble_2)
-    if mask_data is not None:
-        bubble = np.logical_and(bubble, mask_data['mask'])
+    #if mask_data is not None:
+    #    bubble = np.logical_and(bubble, mask_data['mask'])
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
@@ -1241,6 +1279,9 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
 
         # loads frame from video file
         frame, _ = basic.load_frame(vid_path, f)
+
+        # crop the frame (only height is cropped in the current version)
+        frame = frame[row_lo:row_hi, 0:frame.shape[1]]
 
         # extracts value channel of frame--including selem ruins segmentation
         val = basic.get_val_channel(frame)
