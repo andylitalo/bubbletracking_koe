@@ -24,7 +24,7 @@ highlight_method = highlight_bubble_hyst_thresh # method from improc for bubbles
 
 ############################# FILE PARAMETERS ##################################
 ### DON'T WRITE STRINGS WITH APOSTROPHES '' THEY WILL AUTOMATICALLY BE ADDED ###
-vid_subfolder = 20200905_80bar/ # yyyymmdd_<pressure>bar/
+vid_subfolder = v360_co2/20200905_80bar/ # yyyymmdd_<pressure>bar/
 
 # video name should follow format required by fn.parse_vid_path:
 # hdr_0000_111_222_3333_44_555_66_7.mp4
