@@ -98,6 +98,7 @@ def main():
     else:
         # computes background with median filtering
         bkgd = improc.compute_bkgd_med_thread(vid_path,
+            vid_is_grayscale=true,  #assume video is already grayscale (all RGB channels are the same)
             num_frames=num_frames_for_bkgd,
             crop_y=row_lo,
             crop_height=row_hi-row_lo)
