@@ -116,8 +116,9 @@ class Bubble:
         v = self.props_proc['average speed']
 
         # if the bubble's aspect ratio is too large, classify as error (-1)
-        if np.max(self.props_proc['aspect ratio']) > self.metadata['max aspect ratio']:
-            inner = -1
+        if len(self.props_proc['aspect ratio']) > 0:
+            if np.max(self.props_proc['aspect ratio']) > self.metadata['max aspect ratio']:
+                inner = -1
         # if no velocity recorded, classifies as inner stream (assumes too fast
         # to be part of outer stream)
         elif v == None:
@@ -189,18 +190,22 @@ class Bubble:
         # computes radius [um] as geometric mean of three diameters of the
         # bubble divided by 8 to get radius. Assumes symmetry about major axis
         # such that diameter in the other two dimensions is the minor axis
-        self.props_proc['radius'] = [((maj*min*min)**(1.0/3)/8) / \
-                                    self.metadata['pix_per_um'] for maj, min in\
-                                    zip(self.props_raw['major axis'], \
-                                    self.props_raw['minor axis'])]
-
+        try:
+            self.props_proc['radius'] = [((maj*min*min)**(1.0/3)/8) / \
+                                        self.metadata['pix_per_um'] for maj, min in\
+                                        zip(self.props_raw['major axis'], \
+                                        self.props_raw['minor axis'])]
+        except:
+            print('cannot estimate radius: bubble lacks major and minor axis')
         # computes aspect ratio and average (max prevents divide by 0)
-        self.props_proc['aspect ratio'] = [self.props_raw['major axis'][i] /  \
-                                        max(1, self.props_raw['minor axis'][i]) \
-                                        for i in range(n_frames)]
-        self.props_proc['average aspect ratio'] = np.mean( \
-                                                self.props_proc['aspect ratio'])
-
+        try:
+            self.props_proc['aspect ratio'] = [self.props_raw['major axis'][i] /  \
+                                            max(1, self.props_raw['minor axis'][i]) \
+                                            for i in range(n_frames)]
+            self.props_proc['average aspect ratio'] = np.mean( \
+                                                    self.props_proc['aspect ratio'])
+        except:
+            print('cannot estimate aspect ratio: bubble lacks major and minor axis')
         # computes average speed
         v_list = []
         fps = self.metadata['fps']

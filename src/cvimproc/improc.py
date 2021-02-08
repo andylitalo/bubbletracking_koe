@@ -78,8 +78,8 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     bubbles_prev : OrderedDict of dictionaries
         Ordered dictionary of dictionaries of properties of bubbles
         from the previous frame
-    bubbles_archive : OrderedDict of Bubble objects
-        Ordered dictionary of bubbles from all previous frames
+    bubbles_archive : dictionary of Bubble objects
+        Dictionary of bubbles from all previous frames
     ID_curr : int
         Next ID number to be assigned (increasing order)
     flow_dir : numpy array of 2 floats
@@ -681,8 +681,8 @@ def lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
         pixels are located (0 if not part of a bubble)
     ID : int
         ID number of bubble assigned in assign_bubbles()
-    bubbles_archive : OrderedDict of Bubble objects
-        Dictionary of bubbles ordered by ID number
+    bubbles_archive : dictionary of Bubble objects
+        Dictionary of bubbles registered by ID number
 
     Returns
     -------
@@ -1226,7 +1226,7 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
     v_max *= m_2_um*pix_per_um
     # initializes ordered dictionary of bubble data from past frames and archive of all data
     bubbles_prev = OrderedDict()
-    bubbles_archive = OrderedDict()
+    bubbles_archive = {}
     # initializes counter of current bubble label (0-indexed)
     ID_curr = 0
     # chooses end frame to be last frame if given as -1
