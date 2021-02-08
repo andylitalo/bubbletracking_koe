@@ -604,7 +604,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # removes small objects
     bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
     # fills in holes, including those that might be cut off at border
-    bubble_2 = frame_and_fill(bubble_part_filled, width_border)
+    bubble_2 = frame_and_fill(bubble_bw_2, width_border)
 
     # merges images to create final image and masks result
     bubble = np.logical_or(bubble_1, bubble_2)
