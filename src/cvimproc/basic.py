@@ -193,12 +193,13 @@ def fill_holes(im_bw):
     im : numpy array of uint8
         Image with holes filled, including those cut off at border. 0s and 255s
     """
-    # formats image for OpenCV
+    # formats image for OpenCV (and copies it)
     im_bw = cvify(im_bw)
+    im_floodfill = im_bw
     # fills bkgd with white (assuming origin is contiguously connected with bkgd)
-    cv2.floodFill(im_bw, None, (0,0), 255)
+    cv2.floodFill(im_floodfill, None, (0,0), 255)
     # inverts image (black -> white and white -> black)
-    im_inv = cv2.bitwise_not(im_bw)
+    im_inv = cv2.bitwise_not(im_floodfill)
     # combines inverted image with original image to fill holes
     im_filled = (im_inv | im_bw)
 
