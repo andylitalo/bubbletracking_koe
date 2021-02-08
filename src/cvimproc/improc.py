@@ -5,7 +5,9 @@ using OpenCV EXCLUSIVELY.
 
 # imports standard libraries
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
 import pandas as pd
 from collections import OrderedDict
 import time

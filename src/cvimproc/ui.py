@@ -4,7 +4,9 @@ Created on Wed May 20 16:52:03 2015
 @author: John
 """
 
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
 import ctypes
