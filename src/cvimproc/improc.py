@@ -510,9 +510,7 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
-    # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = basic.fill_holes(bubble_bw)
-    # fills in holes that might be cut off at border
+    # fills in holes, including those that might be cut off at border
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
     # returns intermediate steps if requeseted.
@@ -563,9 +561,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
-    # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = basic.fill_holes(bubble_bw_2)
-    # fills in holes that might be cut off at border
+    # fills in holes, including those that might be cut off at border
     bubble_2 = frame_and_fill(bubble_part_filled, width_border)
 
     # merges images to create final image and masks result
@@ -599,8 +595,7 @@ def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
-    # fills enclosed holes with white, but leaves open holes black
-    bubble_part_filled = basic.fill_holes(bubble_bw)
+    # fills in holes, including those that might be cut off at border
     bubble = frame_and_fill(bubble_part_filled, width_border)
 
     # returns intermediate steps if requested.
