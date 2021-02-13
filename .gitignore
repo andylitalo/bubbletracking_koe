@@ -4,3 +4,4 @@ src/libs/
 *.pyc
 *.pkl
 output/data/20200905_80bar/v360_co2_2314_034_800_0200_96_295_04_5/std/input.txt
+input/input.txt
