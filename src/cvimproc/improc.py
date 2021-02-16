@@ -553,7 +553,7 @@ def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # removes small objects
     bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills in holes, including those that might be cut off at border
-    bubble = frame_and_fill(bubble_part_filled, width_border)
+    bubble = frame_and_fill(bubble_part_bw, width_border)
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
