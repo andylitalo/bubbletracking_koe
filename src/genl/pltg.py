@@ -7,7 +7,9 @@ plot.py contains basic plotting functions
 to be used within the functions of the library.
 """
 
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
 import numpy as np
 
 
