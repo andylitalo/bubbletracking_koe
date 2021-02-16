@@ -115,15 +115,36 @@ def main():
     ######################## 2) TRACK BUBBLES ##################################
     # organizes arguments for bubble segmentation function
     # TODO--how to let user customize list of arguments?
-    args = (th, th_lo, th_hi, min_size_hyst, min_size_th, width_border, selem,
-            mask_data)
-    bubbles, frame_IDs = improc.track_bubble(vid_path, bkgd,
-                                highlight_method,
-                                args, pix_per_um, flow_dir, row_lo, row_hi,
-                                v_max, min_size_reg=min_size_reg,
-                                print_freq=print_freq,
-                                width_border=width_border, ret_IDs=True,
-                                start=start, end=end, every=every)
+    track_kwargs = {'vid_path' : vid_path,
+        'bkgd' : bkgd,
+        'highlight_bubble_method' : highlight_method,
+        'print_freq' : print_freq,
+        'start' : start,
+        'end' : end,
+        'every' : every
+    }
+
+    highlight_kwargs = {'th' : th,
+        'th_lo' : th_lo,
+        'th_hi' : th_hi,
+        'min_size_hyst' : min_size_hyst,
+        'min_size_th' : min_size_th,
+        'width_border' : width_border,
+        'selem' : selem,
+        'mask_data' : mask_data
+    }
+
+    assignbubbles_kwargs = {'pix_per_um' : pix_per_um,
+        'flow_dir' : flow_dir,  # flow_dir should be in (row, col) format.
+        'row_lo' : row_lo,
+        'row_hi' : row_hi,
+        'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
+        'min_size_reg' : min_size_reg,
+        'width_border' : width_border
+    }
+
+    bubbles, frame_IDs = improc.track_bubble('track_bubble_py',
+        track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
 
     ######################## 3) PROCESS DATA ###################################
     # computes velocity at interface of inner stream [m/s]
