@@ -136,6 +136,7 @@ def main():
 
     assignbubbles_kwargs = {'pix_per_um' : pix_per_um,
         'flow_dir' : flow_dir,  # flow_dir should be in (row, col) format.
+        'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
         'row_lo' : row_lo,
         'row_hi' : row_hi,
         'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
@@ -143,7 +144,7 @@ def main():
         'width_border' : width_border
     }
 
-    bubbles, frame_IDs = improc.track_bubble('track_bubble_py',
+    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_py,
         track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
 
     ######################## 3) PROCESS DATA ###################################
@@ -162,7 +163,7 @@ def main():
     metadata = {'input name' : input_name, 'bkgd' : bkgd, 'flow dir' : flow_dir,
                 'mask data' : mask_data, 'row lo' : row_lo, 'row hi' : row_hi,
                 'dp' : dp, 'R_i' : R_i, 'v_max' : v_max, 'v_inner' : v_inner,
-                'args' : args, 'frame IDs' : frame_IDs,
+                'args' : highlight_kwargs, 'frame IDs' : frame_IDs,
                 'pix_per_um' : pix_per_um, 'input params' : params}
 
     # stores data

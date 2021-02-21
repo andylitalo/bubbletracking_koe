@@ -367,7 +367,7 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0
         vid_path = vid_path,
         bg_algo = 'hist',
         max_threads = -1, #(default = -1)
-        frame_limit = num_frames #(default = -1 -> all frames),
+        frame_limit = num_frames, #(default = -1 -> all frames),
         grayscale = True,
         vid_is_grayscale = vid_is_grayscale,
         crop_x = crop_x,
@@ -1258,14 +1258,13 @@ def track_bubble(track_bubble_method, track_kwargs, highlight_kwargs, assignbubb
 
 def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     vid_path = track_kwargs['vid_path']
-    bkgd = track_kwargs['bkgd']
     highlight_bubble_method = track_kwargs['highlight_bubble_method']
     print_freq = track_kwargs['print_freq']
     start = track_kwargs['start']
     end = track_kwargs['end']
     every = track_kwargs['every']
-    row_lo = track_kwargs['row_lo']
-    row_hi = track_kwargs['row_hi']
+    row_lo = assignbubbles_kwargs['row_lo']
+    row_hi = assignbubbles_kwargs['row_hi']
 
     """
     ***TODO: install and implement decord VideoReader to speed up loading of
@@ -1280,9 +1279,6 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     if end == -1:
         end = basic.count_frames(vid_path)
 
-    # extracts fps from video filepath
-    fps = fn.parse_vid_path(vid_path)['fps']
-
     # loops through frames of video
     for f in range(start, end, every):
 
@@ -1296,7 +1292,7 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
         val = basic.get_val_channel(frame)
 
         # highlights bubbles in the given frame
-        bubbles_bw = highlight_bubble_method(val, **highlight_kwargs)
+        bubbles_bw = highlight_bubble_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds bubbles and assigns IDs to track them, saving to archive
         ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev, bubbles_archive, ID_curr, **assignbubbles_kwargs)
@@ -1311,7 +1307,7 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
 
 def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     highlightpack = cvvidproc.HighlightBubblesPack(
-        background=highlight_kwargs['bkgd'],
+        background=track_kwargs['bkgd'],
         struct_element=highlight_kwargs['selem'],
         threshold=highlight_kwargs['th'],
         threshold_lo=highlight_kwargs['th_lo'],
@@ -1331,8 +1327,8 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
         assignbubbles_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
         vid_is_grayscale=True,
-        crop_y=track_kwargs['row_lo'],
-        crop_height=track_kwargs['row_hi']-track_kwargs['row_lo'],
+        crop_y=assignbubbles_kwargs['row_lo'],
+        crop_height=assignbubbles_kwargs['row_hi']-assignbubbles_kwargs['row_lo'],
         print_timing_report=True)
 
     print('tracking bubbles...')
