@@ -137,7 +137,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the bubble object is deleted from the dictionary
-            if lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive):
                 del bubbles_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -209,7 +209,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
             centroid_pred = bubbles_archive[ID].predict_centroid(f)
             # deletes object if centroid is out of bounds or if prediction is
             # based on just 1 data point (so velocity is uncertain)
-            if lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive):
                 del bubbles_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
