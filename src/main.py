@@ -98,7 +98,7 @@ def main():
     else:
         # computes background with median filtering
         bkgd = improc.compute_bkgd_med_thread(vid_path,
-            vid_is_grayscale=true,  #assume video is already grayscale (all RGB channels are the same)
+            vid_is_grayscale=True,  #assume video is already grayscale (all RGB channels are the same)
             num_frames=num_frames_for_bkgd,
             crop_y=row_lo,
             crop_height=row_hi-row_lo)
@@ -115,15 +115,37 @@ def main():
     ######################## 2) TRACK BUBBLES ##################################
     # organizes arguments for bubble segmentation function
     # TODO--how to let user customize list of arguments?
-    args = (th, th_lo, th_hi, min_size_hyst, min_size_th, width_border, selem,
-            mask_data)
-    bubbles, frame_IDs = improc.track_bubble(vid_path, bkgd,
-                                highlight_method,
-                                args, pix_per_um, flow_dir, row_lo, row_hi,
-                                v_max, min_size_reg=min_size_reg,
-                                print_freq=print_freq,
-                                width_border=width_border, ret_IDs=True,
-                                start=start, end=end, every=every)
+    track_kwargs = {'vid_path' : vid_path,
+        'bkgd' : bkgd,
+        'highlight_bubble_method' : highlight_method,
+        'print_freq' : print_freq,
+        'start' : start,
+        'end' : end,
+        'every' : every
+    }
+
+    highlight_kwargs = {'th' : th,
+        'th_lo' : th_lo,
+        'th_hi' : th_hi,
+        'min_size_hyst' : min_size_hyst,
+        'min_size_th' : min_size_th,
+        'width_border' : width_border,
+        'selem' : selem,
+        'mask_data' : mask_data
+    }
+
+    assignbubbles_kwargs = {'pix_per_um' : pix_per_um,
+        'flow_dir' : flow_dir,  # flow_dir should be in (row, col) format.
+        'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
+        'row_lo' : row_lo,
+        'row_hi' : row_hi,
+        'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
+        'min_size_reg' : min_size_reg,
+        'width_border' : width_border
+    }
+
+    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
+        track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
 
     ######################## 3) PROCESS DATA ###################################
     # computes velocity at interface of inner stream [m/s]
@@ -141,7 +163,7 @@ def main():
     metadata = {'input name' : input_name, 'bkgd' : bkgd, 'flow dir' : flow_dir,
                 'mask data' : mask_data, 'row lo' : row_lo, 'row hi' : row_hi,
                 'dp' : dp, 'R_i' : R_i, 'v_max' : v_max, 'v_inner' : v_inner,
-                'args' : args, 'frame IDs' : frame_IDs,
+                'args' : highlight_kwargs, 'frame IDs' : frame_IDs,
                 'pix_per_um' : pix_per_um, 'input params' : params}
 
     # stores data
