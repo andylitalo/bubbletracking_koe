@@ -144,7 +144,7 @@ def main():
         'width_border' : width_border
     }
 
-    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_py,
+    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
         track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
 
     ######################## 3) PROCESS DATA ###################################

@@ -122,7 +122,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     if len(bubbles_prev) == 0:
         for i in range(len(bubbles_curr)):
             # only adds large bubbles
-            print(bubbles_curr[i]['area'])
+            #print(bubbles_curr[i]['area'])
             if bubbles_curr[i]['area'] >= min_size_reg:
                 bubbles_prev[ID_curr] = bubbles_curr[i]
                 ID_curr += 1
