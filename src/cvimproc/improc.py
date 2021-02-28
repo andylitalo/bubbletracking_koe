@@ -57,6 +57,12 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
+def assign_bubbles_cvvidproc(bw_frame, frames_processed, objects_prev, objects_archive, next_ID, kwargs):
+    # wrapper on assign_bubbles() to meet cvvidproc API expectation
+
+    return assign_bubbles(bw_frame, frames_processed, objects_prev, objects_archive, next_ID, **kwargs)
+
+
 def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
                    flow_dir, fps, pix_per_um, width_border, row_lo, row_hi,
                    v_max, min_size_reg=0):
@@ -357,8 +363,8 @@ def compute_bkgd_med(vid_path, num_frames=100):
 
     return bkgd_med
 
-def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
-			crop_x=0, crop_y=0, crop_width=0, crop_height=0):
+def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
+                        crop_x=0, crop_y=0, crop_width=0, crop_height=0):
     """
     Calls multithreaded bkgd algo.
     """
@@ -366,7 +372,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
     # computes the median
     vidpack = cvvidproc.VidBgPack(
         vid_path = vid_path,
-        bg_algo = 'hist',
         max_threads = -1, #(default = -1)
         frame_limit = num_frames, #(default = -1 -> all frames),
         grayscale = True,
@@ -375,9 +380,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
         crop_y = crop_y,
         crop_width = crop_width, #(default = 0)
         crop_height = crop_height, #(default = 0)
-        horizontal_buffer_pixels = 0,
-        vertical_buffer_pixels = 0,
-        token_storage_limit = 200,
         print_timing_report = True)
 
     print('getting video background')
@@ -1307,7 +1309,7 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     return bubbles_archive
 
 def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
-    highlightpack = cvvidproc.HighlightBubblesPack(
+    highlightpack = cvvidproc.HighlightObjectsPack(
         background=track_kwargs['bkgd'],
         struct_element=highlight_kwargs['selem'],
         threshold=highlight_kwargs['th'],
@@ -1317,15 +1319,15 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
         min_size_threshold=highlight_kwargs['min_size_th'],
         width_border=highlight_kwargs['width_border'])
 
-    assignpack = cvvidproc.AssignBubblesPack(
-        assign_bubbles,     # pass in function name as functor (not string)
+    assignpack = cvvidproc.AssignObjectsPack(
+        assign_bubbles_cvvidproc,     # pass in function name as functor (not string)
         assignbubbles_kwargs)
 
     # fields not defined will be defaulted
-    trackpack = cvvidproc.VidBubbleTrackPack(
+    trackpack = cvvidproc.VidObjectTrackPack(
         vid_path=track_kwargs['vid_path'],
-        highlightbubbles_pack=highlightpack,
-        assignbubbles_pack=assignpack,
+        highlight_objects_pack=highlightpack,
+        assign_objects_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
         vid_is_grayscale=True,
         crop_y=assignbubbles_kwargs['row_lo'],
@@ -1335,7 +1337,7 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
     print('tracking bubbles...')
     start_time = time.time()
 
-    bubbles_archive = cvvidproc.TrackBubbles(trackpack)
+    bubbles_archive = cvvidproc.TrackObjects(trackpack)
 
     end_time = time.time()
     print('bubbles tracked ({0:f} bubble(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
