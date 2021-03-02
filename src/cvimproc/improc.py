@@ -357,7 +357,8 @@ def compute_bkgd_med(vid_path, num_frames=100):
 
     return bkgd_med
 
-def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0, crop_y=0, crop_width=0, crop_height=0):
+def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
+			crop_x=0, crop_y=0, crop_width=0, crop_height=0):
     """
     Calls multithreaded bkgd algo.
     """
@@ -658,7 +659,7 @@ def hysteresis_threshold(im, th_lo, th_hi):
     _, thresh_lower = cv2.threshold(im, th_lo, 128, cv2.THRESH_BINARY)
 
     # finds the contours to get the seed from which to start the floodfill
-    _, cnts_upper, _ = cv2.findContours(thresh_upper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    cnts_upper, _ = cv2.findContours(thresh_upper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     # Makes brighter the regions that contain a seed
     for cnt in cnts_upper:
@@ -1066,7 +1067,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     This version is based on findContours.
     """
     # computes contours of all objects in image
-    _, cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
     bubbles = []
@@ -1152,7 +1153,7 @@ def remove_small_objects_find(im, min_size):
     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
     """
     # Filter using contour area and remove small noise
-    _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     for c in cnts:
         area = cv2.contourArea(c)
         if area < min_size:
