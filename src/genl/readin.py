@@ -17,6 +17,7 @@ import cv2
 # imports custom libraries
 import genl.fn as fn
 import cvimproc.improc as improc
+import cvimproc.basic as basic
 
 # imports global conversions
 from genl.conversions import *
@@ -96,9 +97,8 @@ def load_params(input_file):
     fig_folder = params['fig_folder']
 
     # if last frame given as -1, returns as final frame of video
-    if end_frame == -1:
-        path_to_main = '../'
-        end = basic.count_frames(path_to_main + expmt_folder + vid_subfolder + vid_name)
+    if end == -1:
+        end = basic.count_frames(expmt_folder + vid_subfolder + vid_name)
         
     return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
             num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
