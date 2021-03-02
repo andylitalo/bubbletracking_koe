@@ -57,7 +57,7 @@ def parse_args():
 
     return args
 
-# TODO add option to save image as bokeh plot with dimensions on tick marks
+# TODO add option to save image with dimensions on tick marks
 
 def main():
     # parses user-supplied information to identify data file for desired experiment
@@ -96,7 +96,7 @@ def main():
             bubbles = data['bubbles']
             frame_IDs = data['frame IDs']
     except:
-        print('No file at specified data path.')
+        print('No file at specified data path {0:s}.'.format(data_path))
         return
 
     # loads video
@@ -117,9 +117,14 @@ def main():
         val = basic.get_val_channel(frame)
 
         # highlights bubble according to parameters from data file
-        bubble = highlight_method(val, metadata['bkgd'], *metadata['args'])
+        row_lo = metadata['row lo']
+        row_hi = metadata['row hi']
+        val = val[row_lo:row_hi, :]
+        bkgd = metadata['bkgd']
+        bubble = highlight_method(val, bkgd, **metadata['args'])
         # applies highlights
         frame_labeled, num_labels = skimage.measure.label(bubble, return_num=True)
+        #num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubble)
 
         # labels bubbles
         IDs = frame_IDs[f]
