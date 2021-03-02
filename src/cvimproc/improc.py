@@ -365,7 +365,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0
     # computes the median
     vidpack = cvvidproc.VidBgPack(
         vid_path = vid_path,
-        bg_algo = 'hist',
         max_threads = -1, #(default = -1)
         frame_limit = num_frames, #(default = -1 -> all frames),
         grayscale = True,
@@ -374,9 +373,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0
         crop_y = crop_y,
         crop_width = crop_width, #(default = 0)
         crop_height = crop_height, #(default = 0)
-        horizontal_buffer_pixels = 0,
-        vertical_buffer_pixels = 0,
-        token_storage_limit = 200,
         print_timing_report = True)
 
     print('getting video background')
