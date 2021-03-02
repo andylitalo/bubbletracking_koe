@@ -12,6 +12,7 @@ import pickle as pkl
 import os
 import shutil
 import glob
+import time
 
 # imports custom libraries
 # from libs
@@ -52,9 +53,6 @@ def main():
     # defines filepath to video
     vid_path = expmt_folder + vid_subfolder + vid_name
 
-    # chooses end frame to be last frame if given as -1
-    if end == -1:
-        end = basic.count_frames(vid_path)
     # checks that video has the requested frames
     # subtracts 1 since "end" gives an exclusive upper bound [start, end)
     if not basic.check_frames(vid_path, end-1):
@@ -149,8 +147,11 @@ def main():
         'width_border' : width_border
     }
 
+    start_time = time.time()
     bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
         track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
+    print('{0:d} frames analyzed with bubble-tracking in {1:.3f} s.'.format(int((end-start)/every),
+									time.time()-start_time)) 
 
     ######################## 3) PROCESS DATA ###################################
     # computes velocity at interface of inner stream [m/s]

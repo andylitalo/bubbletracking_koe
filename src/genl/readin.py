@@ -74,8 +74,8 @@ def load_params(input_file):
     width_border = int(params['width_border'])
     fig_size_red = float(params['fig_size_red'])
     num_frames_for_bkgd = int(params['num_frames_for_bkgd'])
-    start_frame = int(params['start'])
-    end_frame = int(params['end'])
+    start = int(params['start'])
+    end = int(params['end'])
     every = int(params['every'])
     th = int(params['th'])
     th_lo = int(params['th_lo'])
@@ -95,7 +95,12 @@ def load_params(input_file):
     data_folder = params['data_folder']
     fig_folder = params['fig_folder']
 
+    # if last frame given as -1, returns as final frame of video
+    if end_frame == -1:
+        path_to_main = '../'
+        end = basic.count_frames(path_to_main + expmt_folder + vid_subfolder + vid_name)
+        
     return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
-            num_frames_for_bkgd, start_frame, end_frame, every, th, th_lo, th_hi,
+            num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
             min_size_hyst, min_size_th, min_size_reg, highlight_method,
             vid_subfolder, vid_name, expmt_folder, data_folder, fig_folder)
