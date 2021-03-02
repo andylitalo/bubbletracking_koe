@@ -51,8 +51,13 @@ def main():
 
     # defines filepath to video
     vid_path = expmt_folder + vid_subfolder + vid_name
+
+    # chooses end frame to be last frame if given as -1
+    if end == -1:
+        end = basic.count_frames(vid_path)
     # checks that video has the requested frames
-    if not basic.check_frames(vid_path, end):
+    # subtracts 1 since "end" gives an exclusive upper bound [start, end)
+    if not basic.check_frames(vid_path, end-1):
         print('Terminating analysis. Please enter valid frame range next time.')
         return
 
