@@ -589,7 +589,6 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # smooths out thresholded image
     closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
     # removes small objects
-    #                                                     min_size=min_size_th)
     bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
     # fills enclosed holes with white, but leaves open holes black
     bubble_1 = basic.fill_holes(bubble_bw_1)
