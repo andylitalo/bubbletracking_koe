@@ -358,7 +358,8 @@ def compute_bkgd_med(vid_path, num_frames=100):
     return bkgd_med
 
 def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
-			crop_x=0, crop_y=0, crop_width=0, crop_height=0):
+			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
+			max_threads=-1):
     """
     Calls multithreaded bkgd algo.
     """
@@ -367,7 +368,7 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
     vidpack = cvvidproc.VidBgPack(
         vid_path = vid_path,
         bg_algo = 'hist',
-        max_threads = -1, #(default = -1)
+        max_threads = max_threads, #(default = -1)
         frame_limit = num_frames, #(default = -1 -> all frames),
         grayscale = True,
         vid_is_grayscale = vid_is_grayscale,
