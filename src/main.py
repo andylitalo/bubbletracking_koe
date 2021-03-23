@@ -28,7 +28,10 @@ import genl.readin as readin
 from genl.conversions import *
 
 # GLOBAL VARIABLES
-input_folder = '../input/'
+input_dir = '../input/'
+output_dir = '../output/'
+data_subdir = 'data/'
+figs_subdir = 'figs/'
 
 
 def main():
@@ -36,7 +39,7 @@ def main():
     ####################### 0) PARSE INPUT ARGUMENTS ###########################
     input_file, check, print_freq, replace, use_prev_bkgd = readin.parse_args()
     # determines filepath to input parameters (.txt file)
-    input_path = input_folder + input_file
+    input_path = input_dir + input_file
 
     ######################### 1) PRE-PROCESSING ################################
 
@@ -46,12 +49,10 @@ def main():
     fig_size_red, num_frames_for_bkgd, \
     start, end, every, th, th_lo, th_hi, \
     min_size_hyst, min_size_th, min_size_reg, \
-    highlight_method, \
-    vid_subfolder, vid_name, \
-    expmt_folder, data_folder, fig_folder = params
+    highlight_method, vid_subdir, vid_name, expmt_dir = params
 
     # defines filepath to video
-    vid_path = expmt_folder + vid_subfolder + vid_name
+    vid_path = expmt_dir + vid_subdir + vid_name
 
     # checks that video has the requested frames
     # subtracts 1 since "end" gives an exclusive upper bound [start, end)
@@ -67,12 +68,12 @@ def main():
     pix_per_um = pix_per_um_dict[mag] # gets appropriate conversion for magnification
 
     # defines directory to video data and figures
-    vid_dir = vid_subfolder + os.path.join(vid_name[:-4], input_name)
-    data_dir = data_folder + vid_dir
-    fig_dir = fig_folder + vid_dir
+    vid_dir = vid_subdir + os.path.join(vid_name[:-4], input_name)
+    data_dir = output_dir + vid_dir + data_subdir
+    figs_dir = output_dir + vid_dir + figs_subdir
     # creates directories recursively if they do not exist
     fn.makedirs_safe(data_dir)
-    fn.makedirs_safe(fig_dir)
+    fn.makedirs_safe(figs_dir)
     # defines name of data file to save
     data_path = os.path.join(data_dir,
                             'f_{0:d}_{1:d}_{2:d}.pkl'.format(start, every, end))

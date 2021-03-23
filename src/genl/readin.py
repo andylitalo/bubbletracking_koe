@@ -90,17 +90,63 @@ def load_params(input_file):
     highlight_method = highlight_methods[h_m_str]
 
     # file parameters
-    vid_subfolder = params['vid_subfolder']
+    vid_subdir = params['vid_subdir']
     vid_name = params['vid_name']
-    expmt_folder = params['expmt_folder']
-    data_folder = params['data_folder']
-    fig_folder = params['fig_folder']
+    expmt_dir = params['expmt_dir']
+    output_dir = params['output_dir']
 
     # if last frame given as -1, returns as final frame of video
     if end == -1:
-        end = basic.count_frames(expmt_folder + vid_subfolder + vid_name)
+        end = basic.count_frames(expmt_dir + vid_subdir + vid_name)
         
     return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
             num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
             min_size_hyst, min_size_th, min_size_reg, highlight_method,
-            vid_subfolder, vid_name, expmt_folder, data_folder, fig_folder)
+            vid_subdir, vid_name, expmt_dir)
+
+
+def load_params_dict(input_file):
+    """Loads and formats parameters in order from input file into dictionary."""
+    # reads all parameters into a dictionary
+    params = fn.read_input_file(input_file)
+    # initializes dictionary to store parameters to return
+    d = {}
+
+    # name of set of input parameters
+    d['input_name'] = params['input_name']
+    # flow parameters
+    d['eta_i'] = float(params['eta_i'])
+    d['eta_o'] = float(params['eta_o'])
+    d['L'] = float(params['L'])
+    d['R_o'] = um_2_m*float(params['R_o']) # [m]
+
+    # image-processing parameters
+    sd = int(params['selem_dim'])
+    d['selem'] = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sd, sd))
+    d['width_border'] = int(params['width_border'])
+    d['fig_size_red'] = float(params['fig_size_red'])
+    d['num_frames_for_bkgd'] = int(params['num_frames_for_bkgd'])
+    d['start'] = int(params['start'])
+    d['end'] = int(params['end'])
+    d['every'] = int(params['every'])
+    d['th'] = int(params['th'])
+    d['th_lo'] = int(params['th_lo'])
+    d['th_hi'] = int(params['th_hi'])
+    d['min_size_hyst'] = int(params['min_size_hyst'])
+    d['min_size_th'] = int(params['min_size_th'])
+    d['min_size_reg'] = int(params['min_size_reg'])
+    h_m_str = params['highlight_method']
+    assert h_m_str in highlight_methods, \
+            '{0:s} not valid highlight method in readin.py'.format(h_m_str)
+    d['highlight_method'] = highlight_methods[h_m_str]
+
+    # file parameters
+    d['vid_subdir'] = params['vid_subdir']
+    d['vid_name'] = params['vid_name']
+    d['expmt_dir'] = params['expmt_dir']
+
+    # if last frame given as -1, returns as final frame of video
+    if end == -1:
+        d['end'] = basic.count_frames(expmt_dir + vid_subdir + vid_name)
+    
+    return d    
