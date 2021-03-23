@@ -376,8 +376,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
         crop_y = crop_y,
         crop_width = crop_width, #(default = 0)
         crop_height = crop_height, #(default = 0)
-        horizontal_buffer_pixels = 0,
-        vertical_buffer_pixels = 0,
         token_storage_limit = 200,
         print_timing_report = True)
 
@@ -1307,7 +1305,7 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     return bubbles_archive
 
 def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
-    highlightpack = cvvidproc.HighlightBubblesPack(
+    highlightpack = cvvidproc.HighlightObjectsPack(
         background=track_kwargs['bkgd'],
         struct_element=highlight_kwargs['selem'],
         threshold=highlight_kwargs['th'],
@@ -1317,28 +1315,28 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
         min_size_threshold=highlight_kwargs['min_size_th'],
         width_border=highlight_kwargs['width_border'])
 
-    assignpack = cvvidproc.AssignBubblesPack(
+    assignpack = cvvidproc.AssignObjectsPack(
         assign_bubbles,     # pass in function name as functor (not string)
         assignbubbles_kwargs)
 
     # fields not defined will be defaulted
-    trackpack = cvvidproc.VidBubbleTrackPack(
+    trackpack = cvvidproc.VidObjectTrackPack(
         vid_path=track_kwargs['vid_path'],
-        highlightbubbles_pack=highlightpack,
-        assignbubbles_pack=assignpack,
+        highlight_objects_pack=highlightpack,
+        assign_objects_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
-        vid_is_grayscale=True,
+        grayscale=True,
         crop_y=assignbubbles_kwargs['row_lo'],
         crop_height=assignbubbles_kwargs['row_hi']-assignbubbles_kwargs['row_lo'],
         print_timing_report=True)
 
-    print('tracking bubbles...')
+    print('tracking objects...')
     start_time = time.time()
 
-    bubbles_archive = cvvidproc.TrackBubbles(trackpack)
+    bubbles_archive = cvvidproc.TrackObjects(trackpack)
 
     end_time = time.time()
-    print('bubbles tracked ({0:f} bubble(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
+    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
 
     return bubbles_archive
 
