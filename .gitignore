@@ -1,7 +1,11 @@
 
 src/libs/
+input/test/video_sources/
+output/
 *.mp4
 *.pyc
 *.pkl
 *.txt
 *.jpg
+*.png
+*.pptx
