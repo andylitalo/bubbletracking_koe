@@ -1,6 +1,6 @@
 """
-@package io.py
-Handles input and output functions for track_bubbles.py.
+@package readin.py
+Handles input and output functions for main.py.
 
 @author Andy Ylitalo
 @date October 19, 2020
@@ -22,9 +22,10 @@ import cvimproc.basic as basic
 # imports global conversions
 from genl.conversions import *
 
-# GLOBAL VARIABLES
-highlight_methods = {'highlight_bubble_hyst_thresh' :
-                            improc.highlight_bubble_hyst_thresh}
+# imports configurations and global variables
+import sys
+sys.path.append('../')
+import config as cfg
 
 
 ############################## DEFINITIONS #####################################
@@ -58,49 +59,52 @@ def parse_args():
 
 def load_params(input_file):
     """Loads and formats parameters in order from input file."""
-    # reads all parameters into a dictionary
+    # reads all parameters from input file into a dictionary
     params = fn.read_input_file(input_file)
 
+    # creates a dictionary to store processed input parameters
+    p = {}
+
     # name of set of input parameters
-    input_name = params['input_name']
+    p['input_name'] = params['input_name']
     # flow parameters
-    eta_i = float(params['eta_i'])
-    eta_o = float(params['eta_o'])
-    L = float(params['L'])
-    R_o = um_2_m*float(params['R_o']) # [m]
+    p['eta_i'] = float(params['eta_i'])
+    p['eta_o'] = float(params['eta_o'])
+    p['L'] = float(params['L'])
+    p['R_o'] = um_2_m*float(params['R_o']) # [m]
 
     # image-processing parameters
     sd = int(params['selem_dim'])
-    selem = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sd, sd))
-    width_border = int(params['width_border'])
-    fig_size_red = float(params['fig_size_red'])
-    num_frames_for_bkgd = int(params['num_frames_for_bkgd'])
-    start = int(params['start'])
-    end = int(params['end'])
-    every = int(params['every'])
-    th = int(params['th'])
-    th_lo = int(params['th_lo'])
-    th_hi = int(params['th_hi'])
-    min_size_hyst = int(params['min_size_hyst'])
-    min_size_th = int(params['min_size_th'])
-    min_size_reg = int(params['min_size_reg'])
+    p['selem'] = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sd, sd))
+    p['width_border'] = int(params['width_border'])
+    p['num_frames_for_bkgd'] = int(params['num_frames_for_bkgd'])
+    p['start'] = int(params['start'])
+    p['end'] = int(params['end'])
+    p['every'] = int(params['every'])
+    p['th'] = int(params['th'])
+    p['th_lo'] = int(params['th_lo'])
+    p['th_hi'] = int(params['th_hi'])
+    p['min_size_hyst'] = int(params['min_size_hyst'])
+    p['min_size_th'] = int(params['min_size_th'])
+    p['min_size_reg'] = int(params['min_size_reg'])
+    p['photron'] = bool(params['photron'])
     h_m_str = params['highlight_method']
-    assert h_m_str in highlight_methods, \
+    assert h_m_str in cfg.highlight_methods, \
             '{0:s} not valid highlight method in readin.py'.format(h_m_str)
-    highlight_method = highlight_methods[h_m_str]
+    p['highlight_method'] = cfg.highlight_methods[h_m_str]
 
     # file parameters
-    vid_subfolder = params['vid_subfolder']
-    vid_name = params['vid_name']
-    expmt_folder = params['expmt_folder']
-    data_folder = params['data_folder']
-    fig_folder = params['fig_folder']
+    p['vid_subdir'] = params['vid_subdir']
+    p['vid_name'] = params['vid_name']
 
     # if last frame given as -1, returns as final frame of video
-    if end == -1:
-        end = basic.count_frames(expmt_folder + vid_subfolder + vid_name)
+    if p['end'] == -1:
+        p['end'] = basic.count_frames(cfg.input_dir + p['vid_subdir'] + \
+                                                         p['vid_name'])
         
-    return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
-            num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
-            min_size_hyst, min_size_th, min_size_reg, highlight_method,
-            vid_subfolder, vid_name, expmt_folder, data_folder, fig_folder)
+    return p
+
+    #return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
+    #        num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
+    #        min_size_hyst, min_size_th, min_size_reg, highlight_method,
+    #        vid_subdir, vid_name, expmt_dir)

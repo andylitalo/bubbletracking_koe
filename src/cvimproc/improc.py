@@ -94,7 +94,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     pix_per_um : float
         Conversion of pixels per micron (um)
     width_border : int
-        Number of pixels to remove from border for image processign in
+        Number of pixels to remove from border for image processing in
         highlight_bubble()
     row_lo : int
         Row of lower inner wall
@@ -376,8 +376,6 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100,
         crop_y = crop_y,
         crop_width = crop_width, #(default = 0)
         crop_height = crop_height, #(default = 0)
-        horizontal_buffer_pixels = 0,
-        vertical_buffer_pixels = 0,
         token_storage_limit = 200,
         print_timing_report = True)
 
