@@ -10,7 +10,6 @@ shooting good image-processing parameters.
 
 # adds libs folder to search path
 import sys
-sys.path.append('../../libs/')
 sys.path.append('../src/')
 
 # imports standard libraries
@@ -26,24 +25,20 @@ import skimage.color
 import PIL.Image
 
 # imports froms libs
-import cvimproc.vid as vid
 import cvimproc.basic as basic
 import cvimproc.improc as improc
 import genl.fn as fn
 # imports from trackbubble
 import genl.readin as readin
 
-# GLOBAL VARIABLES
-white = (255, 255, 255)
-black = (0, 0, 0)
-input_folder = '../input/' # relative path to input file
-
+# imports configuration file
+import config as cfg
 
 def parse_args():
     """Parses arguments provided in command line into function parameters."""
     ap = argparse.ArgumentParser(
         description='Check quality of highlighting bubbles.')
-    ap.add_argument('-s', '--skip_blanks', default=0,
+    ap.add_argument('-s', '--skip_blanks', default=1,
                     help='If 1, skips images without bubbles detected.')
     ap.add_argument('-b', '--brightness', default=3.0, type=float,
                     help='Factor to multiply image brightness by.')
@@ -69,25 +64,19 @@ def main():
     color_bubble = args['color_bubble']
 
     # loads data file and parameters from mask and input.txt files
-    input_path = input_folder + input_file
-    params = readin.load_params(input_path)
-    input_name, eta_i, eta_o, L, R_o, selem, width_border, \
-    fig_size_red, num_frames_for_bkgd, \
-    start, end, every, th, th_lo, th_hi, \
-    min_size_hyst, min_size_th, min_size_reg, \
-    highlight_method, \
-    vid_subfolder, vid_name, \
-    expmt_folder, data_folder, fig_folder = params
+    p = readin.load_params(cfg.input_dir + input_file)
     # defines filepath to video
-    vid_path = expmt_folder + vid_subfolder + vid_name
+    vid_path = cfg.input_dir + p['vid_subdir'] + p['vid_name']
     # defines directory to video data and figures
-    vid_dir = vid_subfolder + os.path.join(vid_name[:-4], input_name)
-    data_dir = data_folder + vid_dir
-    fig_dir = fig_folder + vid_dir
+    vid_dir = p['vid_subdir'] + os.path.join(p['vid_name'][:-4], 
+                                                p['input_name'])
+    data_dir = cfg.output_dir + vid_dir + cfg.data_subdir
+    figs_dir = cfg.output_dir + vid_dir + cfg.figs_subdir
 
     # defines name of data file to save
     data_path = os.path.join(data_dir,
-                            'f_{0:d}_{1:d}_{2:d}.pkl'.format(start, every, end))
+                            'f_{0:d}_{1:d}_{2:d}.pkl'.format(p['start'], 
+                                                    p['every'], p['end']))
     # tries to open data file (pkl)
     try:
         with open(data_path, 'rb') as f:
@@ -102,26 +91,27 @@ def main():
     # loads video
     cap = cv2.VideoCapture(vid_path)
     # chooses end frame to be last frame if given as -1
-    if end == -1:
-        end = vid.count_frames(vid_path)
+    if p['end'] == -1:
+        p['end'] = basic.count_frames(vid_path)
 
     # loops through frames of video with bubbles according to data file
-    for f in range(start, end, every):
+    for f in range(p['start'], p['end'], p['every']):
 
         # skips frame upon request if no bubbles identified in frame
         if len(frame_IDs[f]) == 0 and skip_blanks:
             continue
         # loads frame
         frame = basic.read_frame(cap, f)
+        # crops frame
+        row_lo = metadata['row lo']
+        row_hi = metadata['row hi']
+        frame = frame[row_lo:row_hi, :]
         # extracts value channel
         val = basic.get_val_channel(frame)
 
         # highlights bubble according to parameters from data file
-        row_lo = metadata['row lo']
-        row_hi = metadata['row hi']
-        val = val[row_lo:row_hi, :]
         bkgd = metadata['bkgd']
-        bubble = highlight_method(val, bkgd, **metadata['args'])
+        bubble = p['highlight_method'](val, bkgd, **metadata['args'])
         # applies highlights
         frame_labeled, num_labels = skimage.measure.label(bubble, return_num=True)
         #num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(bubble)
@@ -158,21 +148,25 @@ def main():
             # text of number ID is black if on the border of the image, white o/w
             on_border = bubbles[ID].get_prop('on border', f)
             outer_stream = bubbles[ID].get_props('inner stream') == 0
+            error = bubbles[ID].get_props('inner stream') == -1
             if on_border or outer_stream:
-                color = black
+                color = cfg.black
+            elif not error:
+                color = cfg.white
             else:
-                color = white
+                color = cfg.red
             frame_disp = cv2.putText(img=frame_disp, text=str(ID), org=(x, y),
-                                    fontFace=0, fontScale=2, color=color,
-                                    thickness=3)
+                                    fontFace=0, fontScale=1, color=color,
+                                    thickness=2)
 
         # adds scale bar if desired--TODO
 
         # saves image
         im = PIL.Image.fromarray(frame_disp)
-        im.save(os.path.join(fig_dir, '{0:d}.{1:s}'.format(f, ext)))
+        im.save(os.path.join(figs_dir, '{0:d}.{1:s}'.format(f, ext)))
 
-        print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, start, every, end))
+        print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
+                                             p['start'], p['every'], p['end']))
 
     return
 

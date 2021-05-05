@@ -3,7 +3,5 @@ src/libs/
 *.mp4
 *.pyc
 *.pkl
-output/data/20200905_80bar/v360_co2_2314_034_800_0200_96_295_04_5/std/input.txt
-input/input.txt
-output/figs/20200829_80bar/v360_co2_8987_017_040_0200_96_295_04_42/std/282.jpg
+*.txt
 *.jpg
