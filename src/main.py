@@ -26,6 +26,7 @@ import genl.readin as readin
 
 # global conversions
 from genl.conversions import *
+
 # global variables and configurations
 import config as cfg
 
@@ -72,6 +73,7 @@ def main():
     vid_dir = p['vid_subdir'] + os.path.join(p['vid_name'][:-4], p['input_name'])
     data_dir = cfg.output_dir + vid_dir + cfg.data_subdir
     figs_dir = cfg.output_dir + vid_dir + cfg.figs_subdir
+
     # creates directories recursively if they do not exist
     fn.makedirs_safe(data_dir)
     fn.makedirs_safe(figs_dir)
