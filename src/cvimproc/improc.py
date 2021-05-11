@@ -634,8 +634,10 @@ def highlight_bubble_hyst_thresh_signed(frame, bkgd, th, th_lo, th_hi, min_size_
         'In improc.highlight_bubbles_hyst_thresh(), low threshold must be lower.'
 
     # subtracts reference image from current image (value channel)
-    bkgd_s = bkgd 
+    # bkgd_s = bkgd 
     im_diff = cv2.absdiff(bkgd, frame)
+    # might be easier to set positive differences to zero?
+    im_diff[frame > bkgd] = 0
 
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
     # thresholds image to become black-and-white
