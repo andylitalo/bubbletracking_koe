@@ -580,63 +580,8 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
-
-    ##################### THRESHOLD AND HIGH MIN SIZE #########################
-    # thresholds image to become black-and-white
-    thresh_bw_1 = thresh_im(im_diff, th)
-    # smooths out thresholded image
-    closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
-    # removes small objects
-    bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
-    # fills enclosed holes with white, but leaves open holes black
-    bubble_1 = basic.fill_holes(bubble_bw_1)
-
-    ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
-    # thresholds image to become black-and-white
-    # thresh_bw_2 = skimage.filters.apply_hysteresis_threshold(\
-    #                     im_diff, th_lo, th_hi)
-    thresh_bw_2 = hysteresis_threshold(im_diff, th_lo, th_hi)
-    thresh_bw_2 = basic.cvify(thresh_bw_2)
-    # smooths out thresholded image
-    closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
-    # removes small objects
-    bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
-    # fills in holes, including those that might be cut off at border
-    bubble_2 = frame_and_fill(bubble_bw_2, width_border)
-
-    # merges images to create final image and masks result
-    bubble = np.logical_or(bubble_1, bubble_2)
-    #if mask_data is not None:
-    #    bubble = np.logical_and(bubble, mask_data['mask'])
-
-    # returns intermediate steps if requeseted.
-    if ret_all_steps:
-        return im_diff, thresh_bw_1, bubble_1, thresh_bw_2, \
-                bubble_2, bubble
-    else:
-        return bubble
-
-
-def highlight_bubble_hyst_thresh_signed(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
-                                 min_size_th, width_border, selem, mask_data,
-                                 ret_all_steps=False):
-    """
-    Version of highlight_bubble() that first performs a low threshold and
-    high minimum size to get faint, large bubbles, and then performs a higher
-    hysteresis threshold with a low minimum size to get distinct, small
-    bubbles.
-
-    Only accepts 2D frames.
-    """
-    assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_bubble_hyst_thresh() only accepts 2D frames.'
-    assert th_lo < th_hi, \
-        'In improc.highlight_bubbles_hyst_thresh(), low threshold must be lower.'
-
-    # subtracts reference image from current image (value channel)
-    # bkgd_s = bkgd 
-    im_diff = cv2.absdiff(bkgd, frame)
-    # might be easier to set positive differences to zero?
+    # based on assumption that bubbles are darker than bkgd, ignore all 
+    # pixels that are brighter than the background by setting to zero
     im_diff[frame > bkgd] = 0
 
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
