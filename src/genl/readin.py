@@ -84,6 +84,9 @@ def load_params(input_file):
     p['th'] = int(params['th'])
     p['th_lo'] = int(params['th_lo'])
     p['th_hi'] = int(params['th_hi'])
+    # makes sure thresholds are properly ordered (prevents input errors)
+    assert correct_thresholds(p), \
+            'thresholds not properly ordered th_lo < th < th_hi'
     p['min_size_hyst'] = int(params['min_size_hyst'])
     p['min_size_th'] = int(params['min_size_th'])
     p['min_size_reg'] = int(params['min_size_reg'])
@@ -103,6 +106,12 @@ def load_params(input_file):
                                                          p['vid_name'])
         
     return p
+
+def correct_thresholds(p):
+    """
+    Checks that the thresholds are ordered th_lo < th < th_hi
+    """
+    return (p['th_lo'] < p['th']) and (p['th'] < p['th_hi'])
 
     #return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
     #        num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
