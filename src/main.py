@@ -30,12 +30,14 @@ from genl.conversions import *
 import config as cfg
 
 
+
 def main():
 
     ####################### 0) PARSE INPUT ARGUMENTS ###########################
     input_file, check, print_freq, replace, use_prev_bkgd = readin.parse_args()
     # determines filepath to input parameters (.txt file)
     input_path = cfg.input_dir + input_file
+
 
     ######################### 1) PRE-PROCESSING ################################
 
@@ -72,6 +74,7 @@ def main():
     vid_dir = p['vid_subdir'] + os.path.join(p['vid_name'][:-4], p['input_name'])
     data_dir = cfg.output_dir + vid_dir + cfg.data_subdir
     figs_dir = cfg.output_dir + vid_dir + cfg.figs_subdir
+
     # creates directories recursively if they do not exist
     fn.makedirs_safe(data_dir)
     fn.makedirs_safe(figs_dir)
