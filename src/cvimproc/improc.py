@@ -94,7 +94,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     pix_per_um : float
         Conversion of pixels per micron (um)
     width_border : int
-        Number of pixels to remove from border for image processign in
+        Number of pixels to remove from border for image processing in
         highlight_bubble()
     row_lo : int
         Row of lower inner wall
@@ -122,7 +122,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     if len(bubbles_prev) == 0:
         for i in range(len(bubbles_curr)):
             # only adds large bubbles
-            print(bubbles_curr[i]['area'])
+            #print(bubbles_curr[i]['area'])
             if bubbles_curr[i]['area'] >= min_size_reg:
                 bubbles_prev[ID_curr] = bubbles_curr[i]
                 ID_curr += 1
@@ -137,7 +137,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the bubble object is deleted from the dictionary
-            if lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive):
                 del bubbles_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -209,7 +209,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
             centroid_pred = bubbles_archive[ID].predict_centroid(f)
             # deletes object if centroid is out of bounds or if prediction is
             # based on just 1 data point (so velocity is uncertain)
-            if lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive):
                 del bubbles_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -357,7 +357,9 @@ def compute_bkgd_med(vid_path, num_frames=100):
 
     return bkgd_med
 
-def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0, crop_y=0, crop_width=0, crop_height=0):
+def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
+			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
+			max_threads=-1):
     """
     Calls multithreaded bkgd algo.
     """
@@ -366,18 +368,15 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, crop_x=0
     vidpack = cvvidproc.VidBgPack(
         vid_path = vid_path,
         bg_algo = 'hist',
-        batch_size = cvvidproc.WorkerThreadsFromMax(-1), #get worker threads automatically 
-        frame_limit = num_frames,
+        max_threads = max_threads, #(default = -1)
+        frame_limit = num_frames, #(default = -1 -> all frames),
         grayscale = True,
         vid_is_grayscale = vid_is_grayscale,
         crop_x = crop_x,
         crop_y = crop_y,
         crop_width = crop_width, #(default = 0)
         crop_height = crop_height, #(default = 0)
-        horizontal_buffer_pixels = 0,
-        vertical_buffer_pixels = 0,
         token_storage_limit = 200,
-        result_storage_limit = 200,
         print_timing_report = True)
 
     print('getting video background')
@@ -581,6 +580,9 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
+    # based on assumption that bubbles are darker than bkgd, ignore all 
+    # pixels that are brighter than the background by setting to zero
+    im_diff[frame > bkgd] = 0
 
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
     # thresholds image to become black-and-white
@@ -588,7 +590,6 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # smooths out thresholded image
     closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
     # removes small objects
-    #                                                     min_size=min_size_th)
     bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
     # fills enclosed holes with white, but leaves open holes black
     bubble_1 = basic.fill_holes(bubble_bw_1)
@@ -613,7 +614,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
-        return thresh_bw_1, bubble_1, thresh_bw_2, \
+        return im_diff, thresh_bw_1, bubble_1, thresh_bw_2, \
                 bubble_2, bubble
     else:
         return bubble
@@ -659,7 +660,7 @@ def hysteresis_threshold(im, th_lo, th_hi):
     _, thresh_lower = cv2.threshold(im, th_lo, 128, cv2.THRESH_BINARY)
 
     # finds the contours to get the seed from which to start the floodfill
-    _, cnts_upper, _ = cv2.findContours(thresh_upper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    cnts_upper, _ = cv2.findContours(thresh_upper, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     # Makes brighter the regions that contain a seed
     for cnt in cnts_upper:
@@ -1067,7 +1068,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     This version is based on findContours.
     """
     # computes contours of all objects in image
-    _, cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
     bubbles = []
@@ -1153,7 +1154,7 @@ def remove_small_objects_find(im, min_size):
     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
     """
     # Filter using contour area and remove small noise
-    _, cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(im, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     for c in cnts:
         area = cv2.contourArea(c)
         if area < min_size:
@@ -1246,21 +1247,31 @@ def thresh_im(im, thresh=-1, c=5):
 
     return thresh_im
 
+def track_bubble(track_bubble_method, track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=False):
+    bubbles_archive = track_bubble_method(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
 
-def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
-                 pix_per_um, flow_dir, row_lo, row_hi,
-                 v_max, min_size_reg=0, ret_IDs=False,
-                 print_freq=10, width_border=10, start=0,
-                 end=-1, every=1):
+    # only returns IDs for each frame if requested
+    # note: assumes bubbles_archive is aligned with start/end/every
+    if ret_IDs:
+        frame_IDs = get_frame_IDs(bubbles_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
+        return bubbles_archive, frame_IDs
+    else:
+        return bubbles_archive
+
+def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
+    vid_path = track_kwargs['vid_path']
+    highlight_bubble_method = track_kwargs['highlight_bubble_method']
+    print_freq = track_kwargs['print_freq']
+    start = track_kwargs['start']
+    end = track_kwargs['end']
+    every = track_kwargs['every']
+    row_lo = assignbubbles_kwargs['row_lo']
+    row_hi = assignbubbles_kwargs['row_hi']
+
     """
-    flow_dir should be in (row, col) format.
-    v_max [=] [m/s]
-
     ***TODO: install and implement decord VideoReader to speed up loading of
     frames: https://github.com/dmlc/decord***
     """
-    # converts max velocity from [m/s] to [pix/s]
-    v_max *= m_2_um*pix_per_um
     # initializes ordered dictionary of bubble data from past frames and archive of all data
     bubbles_prev = OrderedDict()
     bubbles_archive = {}
@@ -1269,9 +1280,6 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
     # chooses end frame to be last frame if given as -1
     if end == -1:
         end = basic.count_frames(vid_path)
-
-    # extracts fps from video filepath
-    fps = fn.parse_vid_path(vid_path)['fps']
 
     # loops through frames of video
     for f in range(start, end, every):
@@ -1286,22 +1294,54 @@ def track_bubble(vid_path, bkgd, highlight_bubble_method, args,
         val = basic.get_val_channel(frame)
 
         # highlights bubbles in the given frame
-        bubbles_bw = highlight_bubble_method(val, bkgd, *args)
+        bubbles_bw = highlight_bubble_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds bubbles and assigns IDs to track them, saving to archive
-        ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev,
-                                 bubbles_archive, ID_curr, flow_dir, fps,
-                                 pix_per_um, width_border, row_lo, row_hi,
-                                 v_max, min_size_reg=min_size_reg)
+        ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev, bubbles_archive, ID_curr, **assignbubbles_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
                   .format(f, start, every, end))
         # a5 = time.time()
         # print('5 {0:f} ms.'.format(1000*(a5-a4)))
-    # only returns IDs for each frame if requested
-    if ret_IDs:
-        frame_IDs = get_frame_IDs(bubbles_archive, start, end, every)
-        return bubbles_archive, frame_IDs
-    else:
-        return bubbles_archive
+
+    return bubbles_archive
+
+def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
+    highlightpack = cvvidproc.HighlightObjectsPack(
+        background=track_kwargs['bkgd'],
+        struct_element=highlight_kwargs['selem'],
+        threshold=highlight_kwargs['th'],
+        threshold_lo=highlight_kwargs['th_lo'],
+        threshold_hi=highlight_kwargs['th_hi'],
+        min_size_hyst=highlight_kwargs['min_size_hyst'],
+        min_size_threshold=highlight_kwargs['min_size_th'],
+        width_border=highlight_kwargs['width_border'])
+
+    assignpack = cvvidproc.AssignObjectsPack(
+        assign_bubbles,     # pass in function name as functor (not string)
+        assignbubbles_kwargs)
+
+    # fields not defined will be defaulted
+    trackpack = cvvidproc.VidObjectTrackPack(
+        vid_path=track_kwargs['vid_path'],
+        highlight_objects_pack=highlightpack,
+        assign_objects_pack=assignpack,
+        frame_limit=track_kwargs['end']-track_kwargs['start'],
+        grayscale=True,
+        crop_y=assignbubbles_kwargs['row_lo'],
+        crop_height=assignbubbles_kwargs['row_hi']-assignbubbles_kwargs['row_lo'],
+        print_timing_report=True)
+
+    print('tracking objects...')
+    start_time = time.time()
+
+    bubbles_archive = cvvidproc.TrackObjects(trackpack)
+
+    end_time = time.time()
+    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
+
+    return bubbles_archive
+
+
+

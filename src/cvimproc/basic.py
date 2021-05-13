@@ -195,13 +195,23 @@ def fill_holes(im_bw):
     """
     # formats image for OpenCV (and copies it)
     im_bw = cvify(im_bw)
-    im_floodfill = im_bw
+    im_floodfill = im_bw.copy()
+    # finds point connected to background
+    for x_bkgd in range(im_bw.shape[1]):
+        if im_floodfill[0, x_bkgd] == 0:
+            break
+        elif x_bkgd == im_bw.shape[1]-1:
+            print('could not find 0 value in basic.fill_holes().')
     # fills bkgd with white (assuming origin is contiguously connected with bkgd)
-    cv2.floodFill(im_floodfill, None, (0,0), 255)
+    # seed point is in the format (x,y)
+    seed_pt = (x_bkgd, 0)
+    h, w = im_bw.shape[:2]
+    mask = np.zeros((h+2, w+2), np.uint8)
+    cv2.floodFill(im_floodfill, None, seed_pt, 255)
     # inverts image (black -> white and white -> black)
     im_inv = cv2.bitwise_not(im_floodfill)
     # combines inverted image with original image to fill holes
-    im_filled = (im_inv | im_bw)
+    im_filled = im_bw | im_inv
 
     return im_filled
 

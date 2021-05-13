@@ -15,6 +15,8 @@ import shutil
 import cv2
 
 # imports custom libraries
+import sys
+sys.path.append('../src/')
 import genl.fn as fn
 import cvimproc.improc as improc
 import cvimproc.basic as basic
@@ -23,8 +25,6 @@ import cvimproc.basic as basic
 from genl.conversions import *
 
 # imports configurations and global variables
-import sys
-sys.path.append('../')
 import config as cfg
 
 
@@ -34,27 +34,25 @@ def parse_args():
     """Parses arguments provided in command line into function parameters."""
     ap = argparse.ArgumentParser(
         description='Track, label, and analyze bubbles in sheath flow.')
-    ap.add_argument('-i', '--input_file', default='input.txt',
+    ap.add_argument('tests', metavar='tests', type=int, nargs='+', 
+                    help='tests to run')
+    ap.add_argument('-i', '--input_file', 
+                    default='files/input_test.txt',
                     help='path to input file with remaining parameters')
-    ap.add_argument('-c', '--check_mask', default=1, type=int,
-                    help='1 to check mask, 0 to accept if available')
-    ap.add_argument('-f', '--freq', default=10, type=int,
-                    help='frequency of printouts while processing frames.')
-    ap.add_argument('-r', '--replace', default=0, type=int,
-                    help='If 1, replaces existing data file if present.' + \
-                    ' Otherwise, if 0, does not replace data file if present.')
-    ap.add_argument('-b', '--use_prev_bkgd', default=0, type=int,
-                    help='If 1, uses previous background if data available.')
+    ap.add_argument('-c', '--check',
+                    default=0, help='If 1, checks mask')
+    ap.add_argument('-r', '--replace',
+                    default=0, help='If 1, replaces existing files')
     args = vars(ap.parse_args())
 
     # extracts and formats individual parameters
+    print(args['tests'])
+    tests = list(args['tests'])
     input_file = args['input_file']
-    check = bool(args['check_mask'])
-    print_freq = args['freq']
+    check = bool(args['check'])
     replace = bool(args['replace'])
-    use_prev_bkgd = bool(args['use_prev_bkgd'])
 
-    return input_file, check, print_freq, replace, use_prev_bkgd
+    return tests, input_file, check, replace
 
 
 def load_params(input_file):
@@ -67,11 +65,6 @@ def load_params(input_file):
 
     # name of set of input parameters
     p['input_name'] = params['input_name']
-    # flow parameters
-    p['eta_i'] = float(params['eta_i'])
-    p['eta_o'] = float(params['eta_o'])
-    p['L'] = float(params['L'])
-    p['R_o'] = um_2_m*float(params['R_o']) # [m]
 
     # image-processing parameters
     sd = int(params['selem_dim'])
@@ -84,13 +77,9 @@ def load_params(input_file):
     p['th'] = int(params['th'])
     p['th_lo'] = int(params['th_lo'])
     p['th_hi'] = int(params['th_hi'])
-    # makes sure thresholds are properly ordered (prevents input errors)
-    assert correct_thresholds(p), \
-            'thresholds not properly ordered th_lo < th < th_hi'
     p['min_size_hyst'] = int(params['min_size_hyst'])
     p['min_size_th'] = int(params['min_size_th'])
     p['min_size_reg'] = int(params['min_size_reg'])
-    p['photron'] = bool(params['photron'])
     h_m_str = params['highlight_method']
     assert h_m_str in cfg.highlight_methods, \
             '{0:s} not valid highlight method in readin.py'.format(h_m_str)
@@ -98,22 +87,6 @@ def load_params(input_file):
 
     # file parameters
     p['vid_subdir'] = params['vid_subdir']
-    p['vid_name'] = params['vid_name']
-
-    # if last frame given as -1, returns as final frame of video
-    if p['end'] == -1:
-        p['end'] = basic.count_frames(cfg.input_dir + p['vid_subdir'] + \
-                                                         p['vid_name'])
-        
+    p['vid_ext'] = params['vid_ext']
+ 
     return p
-
-def correct_thresholds(p):
-    """
-    Checks that the thresholds are ordered th_lo < th < th_hi
-    """
-    return (p['th_lo'] < p['th']) and (p['th'] < p['th_hi'])
-
-    #return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
-    #        num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
-    #        min_size_hyst, min_size_th, min_size_reg, highlight_method,
-    #        vid_subdir, vid_name, expmt_dir)
