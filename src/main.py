@@ -26,12 +26,9 @@ import genl.readin as readin
 
 # global conversions
 from genl.conversions import *
+# global variables and configurations
+import config as cfg
 
-# GLOBAL VARIABLES
-input_dir = '../input/'
-output_dir = '../output/'
-data_subdir = 'data/'
-figs_subdir = 'figs/'
 
 
 def main():
@@ -39,24 +36,25 @@ def main():
     ####################### 0) PARSE INPUT ARGUMENTS ###########################
     input_file, check, print_freq, replace, use_prev_bkgd = readin.parse_args()
     # determines filepath to input parameters (.txt file)
-    input_path = input_dir + input_file
+    input_path = cfg.input_dir + input_file
+
 
     ######################### 1) PRE-PROCESSING ################################
 
     # loads parameters
-    params = readin.load_params(input_path)
-    input_name, eta_i, eta_o, L, R_o, selem, width_border, \
-    fig_size_red, num_frames_for_bkgd, \
-    start, end, every, th, th_lo, th_hi, \
-    min_size_hyst, min_size_th, min_size_reg, \
-    highlight_method, vid_subdir, vid_name, expmt_dir = params
+    p = readin.load_params(input_path)
+    #input_name, eta_i, eta_o, L, R_o, selem, width_border, \
+    #fig_size_red, num_frames_for_bkgd, \
+    #start, end, every, th, th_lo, th_hi, \
+    #min_size_hyst, min_size_th, min_size_reg, \
+    #highlight_method, vid_subdir, vid_name, expmt_dir = params
 
     # defines filepath to video
-    vid_path = expmt_dir + vid_subdir + vid_name
+    vid_path = cfg.input_dir + p['vid_subdir'] + p['vid_name']
 
     # checks that video has the requested frames
     # subtracts 1 since "end" gives an exclusive upper bound [start, end)
-    if not basic.check_frames(vid_path, end-1):
+    if not basic.check_frames(vid_path, p['end']-1):
         print('Terminating analysis. Please enter valid frame range next time.')
         return
 
@@ -65,18 +63,25 @@ def main():
     Q_i = uLmin_2_m3s*vid_params['Q_i'] # inner stream flow rate [m^3/s]
     Q_o = uLmin_2_m3s*vid_params['Q_o'] # outer stream flow rate [m^3/s]
     mag = vid_params['mag'] # magnification of objective (used for pix->um conv)
-    pix_per_um = pix_per_um_dict[mag] # gets appropriate conversion for magnification
+    # gets unit conversion for Photron camera based on microscope magnification
+    if p['photron']: 
+        pix_per_um = pix_per_um_photron[mag]
+    # otherwise uses conversion for Chronos camera
+    else:
+        pix_per_um = pix_per_um_chronos[mag]
 
     # defines directory to video data and figures
-    vid_dir = vid_subdir + os.path.join(vid_name[:-4], input_name)
-    data_dir = output_dir + vid_dir + data_subdir
-    figs_dir = output_dir + vid_dir + figs_subdir
+    vid_dir = p['vid_subdir'] + os.path.join(p['vid_name'][:-4], p['input_name'])
+    data_dir = cfg.output_dir + vid_dir + cfg.data_subdir
+    figs_dir = cfg.output_dir + vid_dir + cfg.figs_subdir
+
     # creates directories recursively if they do not exist
     fn.makedirs_safe(data_dir)
     fn.makedirs_safe(figs_dir)
     # defines name of data file to save
     data_path = os.path.join(data_dir,
-                            'f_{0:d}_{1:d}_{2:d}.pkl'.format(start, every, end))
+                            'f_{0:d}_{1:d}_{2:d}.pkl'.format(p['start'], 
+                                                        p['every'], p['end']))
     # if the data file already exists in the given directory, end analysis
     # upon request
     # if replacement requested, previous background may be used upon request
@@ -84,7 +89,7 @@ def main():
         if not replace:
             print('{0:s} already exists. Terminating analysis.'.format(data_path))
             return
-
+    
     # loads mask data; user creates new mask by clicking if none available
     first_frame, _ = basic.load_frame(vid_path, 0)
     flow_dir, mask_data = ui.click_sheath_flow(first_frame,
@@ -103,7 +108,7 @@ def main():
         # computes background with median filtering
         bkgd = improc.compute_bkgd_med_thread(vid_path,
             vid_is_grayscale=True,  #assume video is already grayscale (all RGB channels are the same)
-            num_frames=num_frames_for_bkgd,
+            num_frames=p['num_frames_for_bkgd'],
             crop_y=row_lo,
             crop_height=row_hi-row_lo)
         '''
@@ -113,28 +118,28 @@ def main():
 
     # computes pressure drop [Pa], inner stream radius [m], and max velocity
     #  [m/s] for Poiseuille sheath flow
-    dp, R_i, v_max = flow.get_dp_R_i_v_max(eta_i, eta_o, L, Q_i, Q_o, R_o,
-                                            SI=True)
+    dp, R_i, v_max = flow.get_dp_R_i_v_max(p['eta_i'], p['eta_o'], p['L'],
+                                        Q_i, Q_o, p['R_o'], SI=True)
 
     ######################## 2) TRACK BUBBLES ##################################
     # organizes arguments for bubble segmentation function
     # TODO--how to let user customize list of arguments?
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
-        'highlight_bubble_method' : highlight_method,
+        'highlight_bubble_method' : p['highlight_method'],
         'print_freq' : print_freq,
-        'start' : start,
-        'end' : end,
-        'every' : every
+        'start' : p['start'],
+        'end' : p['end'],
+        'every' : p['every']
     }
 
-    highlight_kwargs = {'th' : th,
-        'th_lo' : th_lo,
-        'th_hi' : th_hi,
-        'min_size_hyst' : min_size_hyst,
-        'min_size_th' : min_size_th,
-        'width_border' : width_border,
-        'selem' : selem,
+    highlight_kwargs = {'th' : p['th'],
+        'th_lo' : p['th_lo'],
+        'th_hi' : p['th_hi'],
+        'min_size_hyst' : p['min_size_hyst'],
+        'min_size_th' : p['min_size_th'],
+        'width_border' : p['width_border'],
+        'selem' : p['selem'],
         'mask_data' : mask_data
     }
 
@@ -144,19 +149,20 @@ def main():
         'row_lo' : row_lo,
         'row_hi' : row_hi,
         'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
-        'min_size_reg' : min_size_reg,
-        'width_border' : width_border
+        'min_size_reg' : p['min_size_reg'],
+        'width_border' : p['width_border']
     }
 
     start_time = time.time()
     bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
         track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
-    print('{0:d} frames analyzed with bubble-tracking in {1:.3f} s.'.format(int((end-start)/every),
-									time.time()-start_time)) 
+    print('{0:d} frames analyzed with bubble-tracking in {1:.3f} s.'.format(
+                                        int((p['end']-p['start'])/p['every']),
+					time.time()-start_time)) 
 
     ######################## 3) PROCESS DATA ###################################
     # computes velocity at interface of inner stream [m/s]
-    v_inner = flow.v_inner(Q_i, Q_o, eta_i, eta_o, R_o, L)
+    v_inner = flow.v_inner(Q_i, Q_o, p['eta_i'], p['eta_o'], p['R_o'], p['L'])
     for ID in bubbles.keys():
         bubble = bubbles[ID]
         # computes average speed [m/s]
@@ -167,11 +173,11 @@ def main():
     ########################## 4) SAVE RESULTS #################################
     # stores metadata (I will not store video parameters or parameters from the
     # input file since they are stored elsewhere already)
-    metadata = {'input name' : input_name, 'bkgd' : bkgd, 'flow dir' : flow_dir,
+    metadata = {'input name' : p['input_name'], 'bkgd' : bkgd, 'flow dir' : flow_dir,
                 'mask data' : mask_data, 'row lo' : row_lo, 'row hi' : row_hi,
                 'dp' : dp, 'R_i' : R_i, 'v_max' : v_max, 'v_inner' : v_inner,
                 'args' : highlight_kwargs, 'frame IDs' : frame_IDs,
-                'pix_per_um' : pix_per_um, 'input params' : params}
+                'pix_per_um' : pix_per_um, 'input params' : p}
 
     # stores data
     data = {}

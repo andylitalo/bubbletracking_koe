@@ -94,7 +94,7 @@ def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
     pix_per_um : float
         Conversion of pixels per micron (um)
     width_border : int
-        Number of pixels to remove from border for image processign in
+        Number of pixels to remove from border for image processing in
         highlight_bubble()
     row_lo : int
         Row of lower inner wall
@@ -580,6 +580,9 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
+    # based on assumption that bubbles are darker than bkgd, ignore all 
+    # pixels that are brighter than the background by setting to zero
+    im_diff[frame > bkgd] = 0
 
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
     # thresholds image to become black-and-white
@@ -611,7 +614,7 @@ def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
-        return thresh_bw_1, bubble_1, thresh_bw_2, \
+        return im_diff, thresh_bw_1, bubble_1, thresh_bw_2, \
                 bubble_2, bubble
     else:
         return bubble
