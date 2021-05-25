@@ -33,6 +33,7 @@ import cvimproc.improc as improc
 import cvimproc.basic as basic
 import cvimproc.ui as ui
 import cvimproc.mask as mask
+import statlib as stat
 
 
 ### PARAMETERS ###
@@ -71,13 +72,16 @@ def parse_args():
                     help='Stops analysis before saving images if True.')
     ap.add_argument('-d', '--savediff', default=False, type=bool,
                     help='Saves absolute difference from bkgd instead of image if True.')
+    ap.add_argument('-c', '--colormap', default='', type=string,
+                    help='Specifies colormap for saving false-color images.')
     args = vars(ap.parse_args())
 
     frame_start, frame_end = int(args['framerange'][0]), int(args['framerange'][1])
     stop_early = args['stopearly']
     save_diff = args['savediff']
+    colormap = args['colormap']
     
-    return frame_start, frame_end, stop_early, save_diff
+    return frame_start, frame_end, stop_early, save_diff, colormap
 
 def proc_stats(vid_path, bkgd, end):
     """Processes statistics of the images in the video."""
@@ -117,8 +121,12 @@ def proc_stats(vid_path, bkgd, end):
 
 def main():
     
-    frame_start, frame_end, stop_early, save_diff = parse_args()
+    frame_start, frame_end, stop_early, save_diff, colormap = parse_args()
 
+    # creates color map
+    if len(colormap) > 0:
+        cm = plt.cm.get_cmap(colormap, 2*255+1)
+        
     # loads mask data
     first_frame, _ = basic.load_frame(vid_path, 0)
     mask_data = ui.get_polygonal_mask_data(first_frame, mask_path)
@@ -150,9 +158,18 @@ def main():
         plt.title('{0:d}'.format(f))
         plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)))
         plt.close()
+        if len(colormap) > 0:
+            # scales brightness of pixels to saturation (or near it)
+            scale = int(255 / np.max(np.abs(signed_diff)))
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            fc = ax.pcolormesh(scale*signed_diff, cmap=cmap, rasterized=True, vmin=-255, vmax=255)
+            fig.colorbar(fc, ax=ax)
+            plt.savefig(os.path.join(save_path, 'fc_{0:d}.{1:s}'.format(f, ext)))
+            plt.close()
 
     # computes statistics
-    mean_list, mean_sq_list, stdev_list, min_val_list = proc_stats(vid_path, 
+    mean_list, mean_sq_list, stdev_list, min_val_list = stat.proc_stats(vid_path, 
                                                                 bkgd, end)
 
     # computes stats
@@ -173,9 +190,7 @@ def main():
     plt.figure()
     _ = plt.hist(mean_list, n_bins, histtype='step')
     plt.ylim([0, hist_max])
-    plt.plot([mu, mu], [0, hist_max], 'r--', label='overall mean')
-    plt.plot([mu-sigma, mu-sigma], [0, hist_max], 'b--', label='mu-sigma')
-    plt.plot([mu+sigma, mu+sigma], [0, hist_max], 'g--', label='mu+sigma')
+    plt.plot([mu, mu], [0, hist_max], 'k-', label='overall mean = {0:.2f}'.format(mu))
     plt.title('Mean')
     plt.legend()
     # saves figure
@@ -185,7 +200,7 @@ def main():
     plt.figure()
     _ = plt.hist(stdev_list, n_bins, histtype='step')
     plt.ylim([0, hist_max])
-    plt.plot([sigma, sigma], [0, hist_max], 'r--', label='overall stdev')
+    plt.plot([sigma, sigma], [0, hist_max], 'k-', label='overall stdev = {0:.2f}'.format(sigma))
     plt.title('Standard Deviation')
     plt.legend()
     # saves figure
@@ -196,9 +211,13 @@ def main():
     _ = plt.hist(min_val_list, n_bins, histtype='step')
     plt.title('Minimum')
     plt.ylim([0, hist_max])
-    plt.plot([mu_min, mu_min], [0, hist_max], 'r--', label='mu')
-    plt.plot([mu_min - 3*sigma_min, mu_min - 3*sigma_min], [0, hist_max], 'b--', label='mu-3sig')
-    plt.plot([mu_min - 5*sigma_min, mu_min - 5*sigma_min], [0, hist_max], 'g--', label='mu-5sig')
+    plt.plot([mu_min, mu_min], [0, hist_max], 'k-', label='mu')
+    threesig = mu_min - 3*sigma_min
+    fivesig = mu_min - 5*sigma_min
+    plt.plot([threesig, threesig], [0, hist_max], 'b--', 
+                    label=r'$\mu - 3\sigma$' + '{0:.2f}'.format(threesig))
+    plt.plot([fivesig, fivesig], [0, hist_max], 'g--', 
+                    label=r'$\mu - 5\sigma$' + '{0:.2f}'.format(fivesig))
     plt.legend()
     # saves figure
     plt.savefig(os.path.join(save_path, 'min_hist.png'))
