@@ -72,8 +72,8 @@ def parse_args():
                     help='Stops analysis before saving images if True.')
     ap.add_argument('-d', '--savediff', default=False, type=bool,
                     help='Saves absolute difference from bkgd instead of image if True.')
-    ap.add_argument('-c', '--colormap', default='', type=string,
-                    help='Specifies colormap for saving false-color images.')
+    ap.add_argument('-c', '--colormap', default='',
+                     help='Specifies colormap for saving false-color images.')
     args = vars(ap.parse_args())
 
     frame_start, frame_end = int(args['framerange'][0]), int(args['framerange'][1])
@@ -125,7 +125,7 @@ def main():
 
     # creates color map
     if len(colormap) > 0:
-        cm = plt.cm.get_cmap(colormap, 2*255+1)
+        cmap = plt.cm.get_cmap(colormap, 2*255+1)
         
     # loads mask data
     first_frame, _ = basic.load_frame(vid_path, 0)
@@ -159,6 +159,7 @@ def main():
         plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)))
         plt.close()
         if len(colormap) > 0:
+            print('saving false color image')
             # scales brightness of pixels to saturation (or near it)
             scale = int(255 / np.max(np.abs(signed_diff)))
             fig = plt.figure()
