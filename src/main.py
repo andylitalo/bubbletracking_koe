@@ -92,6 +92,8 @@ def main():
 
     # loads mask data; user creates new mask by clicking if none available
     first_frame, _ = basic.load_frame(vid_path, 0)
+    if first_frame is None:
+        print('Warning: Failed to load first frame from {0:s}'.format(vid_path))
     flow_dir, mask_data = ui.click_sheath_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
     # computes minimum and maximum rows for bubble tracking computation
