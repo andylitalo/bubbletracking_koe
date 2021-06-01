@@ -156,17 +156,16 @@ def main():
         _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
         plt.ylim(0, hist_max)
         plt.title('{0:d}'.format(f))
-        plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)))
+        plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
         plt.close()
         if len(colormap) > 0:
-            print('saving false color image')
             # scales brightness of pixels to saturation (or near it)
             scale = int(255 / np.max(np.abs(signed_diff)))
-            fig = plt.figure()
+            fig = plt.figure(figsize=(10, 0.5))
             ax = fig.add_subplot(111)
             fc = ax.pcolormesh(scale*signed_diff, cmap=cmap, rasterized=True, vmin=-255, vmax=255)
-            fig.colorbar(fc, ax=ax)
-            plt.savefig(os.path.join(save_path, 'fc_{0:d}.{1:s}'.format(f, ext)))
+            fig.colorbar(fc, ax=ax, aspect=5)
+            plt.savefig(os.path.join(save_path, 'fc_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
             plt.close()
 
     # computes statistics
