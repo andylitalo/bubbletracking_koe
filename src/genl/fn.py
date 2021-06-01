@@ -122,9 +122,8 @@ def parse_vid_path(vid_path):
               'Q_i' : format_float(tokens[i+2]),
               'Q_o' : int(tokens[i+3]),
               'd' : int(tokens[i+4]),
-              'P' : int(tokens[i+5]),
-              'mag' : int(tokens[i+6]),
-              'num' : int(tokens[i+7])}
+              'mag' : int(tokens[i+5]),
+              'num' : int(tokens[i+6])}
 
     return params
 

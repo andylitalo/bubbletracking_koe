@@ -1308,7 +1308,7 @@ def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     return bubbles_archive
 
 def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
-    highlightpack = cvvidproc.HighlightObjectsPack(
+    highlightpack = cvvidproc.HighlightBubblesPack(
         background=track_kwargs['bkgd'],
         struct_element=highlight_kwargs['selem'],
         threshold=highlight_kwargs['th'],
@@ -1318,15 +1318,15 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
         min_size_threshold=highlight_kwargs['min_size_th'],
         width_border=highlight_kwargs['width_border'])
 
-    assignpack = cvvidproc.AssignObjectsPack(
+    assignpack = cvvidproc.AssignBubblesPack(
         assign_bubbles,     # pass in function name as functor (not string)
         assignbubbles_kwargs)
 
     # fields not defined will be defaulted
-    trackpack = cvvidproc.VidObjectTrackPack(
+    trackpack = cvvidproc.VidBubbleTrackPack(
         vid_path=track_kwargs['vid_path'],
-        highlight_objects_pack=highlightpack,
-        assign_objects_pack=assignpack,
+        highlight_bubbles_pack=highlightpack,
+        assign_bubbles_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
         grayscale=True,
         crop_y=assignbubbles_kwargs['row_lo'],
@@ -1336,7 +1336,7 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
     print('tracking objects...')
     start_time = time.time()
 
-    bubbles_archive = cvvidproc.TrackObjects(trackpack)
+    bubbles_archive = cvvidproc.TrackBubbles(trackpack)
 
     end_time = time.time()
     print('Tracked ({0:f} object(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
