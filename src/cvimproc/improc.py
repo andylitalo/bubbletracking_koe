@@ -1325,8 +1325,8 @@ def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
     # fields not defined will be defaulted
     trackpack = cvvidproc.VidBubbleTrackPack(
         vid_path=track_kwargs['vid_path'],
-        highlight_bubbles_pack=highlightpack,
-        assign_bubbles_pack=assignpack,
+        highlightbubbles_pack=highlightpack,
+        assignbubbles_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
         grayscale=True,
         crop_y=assignbubbles_kwargs['row_lo'],

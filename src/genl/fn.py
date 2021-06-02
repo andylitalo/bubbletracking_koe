@@ -116,14 +116,20 @@ def parse_vid_path(vid_path):
             break
         prefix.join(token)
 
+    # legacy: for videos that include the power
     params = {'prefix' : prefix,
               'fps' : int(tokens[i]),
               'exp_time' : int(tokens[i+1]),
               'Q_i' : format_float(tokens[i+2]),
               'Q_o' : int(tokens[i+3]),
-              'd' : int(tokens[i+4]),
-              'mag' : int(tokens[i+5]),
-              'num' : int(tokens[i+6])}
+              'd' : int(tokens[i+4])}
+    if len(tokens) == i+8:
+        params['P'] = int(tokens[i+5])
+        params['mag'] = int(token[i+6])
+        params['num'] = int(token[i+7])
+    else:
+        params['mag'] = int(tokens[i+5])
+        params['num'] = int(tokens[i+6])
 
     return params
 
