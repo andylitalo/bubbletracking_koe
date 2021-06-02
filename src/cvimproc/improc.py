@@ -335,6 +335,40 @@ def bubble_d_mat(bubbles1, bubbles2, axis, v_max, row_lo, row_hi, fps):
     return d_mat
 
 
+def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
+    """
+    Same as compute_bkgd_med() but computes mean instead of median. Very slow.
+    """
+    cap = cv2.VideoCapture(vid_path)
+    ret, frame = cap.read()
+    if not ret:
+        return None
+    # computes the mean
+    total = np.zeros(frame.shape)
+    n = 0
+    while ret:
+        total += frame.astype('int')
+        n += 1
+        if (n % print_freq) == 0:
+            print('{0:d} frames complete for compute_bkgd_mean()'.format(n))
+        if n == num_frames:
+            break
+        # reads next frame
+        ret, frame = cap.read()
+    # computes the mean
+    bkgd_mean = total / n
+    # formats result as an image (unsigned 8-bit integer)
+    bkgd_mean = bkgd_mean.astype('uint8')
+    print('Computed mean of {0:s}'.format(vid_path))
+
+    # takes value channel if color image provided
+    if len(bkgd_mean.shape) == 3:
+        bkgd_mean = basic.get_val_channel(bkgd_mean)
+
+    return bkgd_mean
+
+    
+
 def compute_bkgd_med(vid_path, num_frames=100):
     """
     Same as compute_bkgd_med_thread() but does not use threading. More reliable
@@ -768,11 +802,12 @@ def measure_labeled_im_width(im_labeled, um_per_pix):
 
     return mean, std
 
-
+    
 def med_alg(cap, frame_trio):
     """
     Same as med_alg_thread but using VideoCapture obj instead of thread.
     Slower, but more reliable and predictable operation.
+    OBSOLETE: doesn't work in some edge cases!!! (thanks koe for the catch!)
     """
     # reads frame from file video stream
     ret, frame = cap.read()
