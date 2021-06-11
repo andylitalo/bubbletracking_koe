@@ -11,10 +11,10 @@ for tracking bubbles.
 import cvimproc.improc as improc
 
 # directories
-input_dir = '../input/'
-output_dir = '../output/'
-data_subdir = '/data/'
-figs_subdir = '/figs/'
+input_dir = '../input'
+output_dir = '../output'
+data_subdir = 'data'
+figs_subdir = 'figs'
 
 # highlight methods
 highlight_methods = {'highlight_bubble_hyst_thresh' :

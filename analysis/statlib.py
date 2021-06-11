@@ -37,7 +37,8 @@ def inds_to_labels(inds, n_samples):
 
     return labels.astype(bool) 
 
-def plot_roc(fpr, tpr, save_path='', ext='.jpg'):
+def plot_roc(fpr, tpr, save_path='', ext='.jpg', show_fig=False,
+            t_fs=18, ax_fs=16, tk_fs=14, l_fs=12):
     """
     Plots receiver operating characteristic curve.
 
@@ -51,6 +52,8 @@ def plot_roc(fpr, tpr, save_path='', ext='.jpg'):
         Path to save plot (includes directory). If '', not saved
     ext : string for 4 chars
         Extension for the desired image format of plot (includes '.')
+    show_fig : bool, opt (default=False)
+        If True, shows figure
 
     Returns
     -------
@@ -68,14 +71,17 @@ def plot_roc(fpr, tpr, save_path='', ext='.jpg'):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(fpr, tpr, color='darkorange', lw=2, 
-        label='ROC curve (area = {0:.2f})'.format(roc_auc))
+        label='ROC curve (AUC = {0:.2f})'.format(roc_auc))
     ax.plot([0, 1], [0, 1], color='navy', lw=2, ls='--')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1.05])
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    ax.set_title('Receiver Operating Characteristic')
-    ax.legend(loc='lower right')
+    ax.set_xlabel('False Positive Rate', fontsize=ax_fs)
+    ax.set_ylabel('True Positive Rate', fontsize=ax_fs)
+    ax.set_title('Receiver Operating Characteristic', fontsize=t_fs)
+    ax.legend(loc='lower right', fontsize=l_fs)
+    ax.tick_params(axis='both', labelsize=tk_fs)
+    if show_fig:
+        plt.show()
 
     # saves plot
     if len(save_path) > 0:
