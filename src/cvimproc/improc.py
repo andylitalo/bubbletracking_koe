@@ -6,7 +6,7 @@ using OpenCV EXCLUSIVELY.
 # imports standard libraries
 import numpy as np
 import matplotlib
-matplotlib.use("agg")
+matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import pandas as pd
 from collections import OrderedDict
