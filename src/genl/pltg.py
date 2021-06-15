@@ -8,7 +8,7 @@ to be used within the functions of the library.
 """
 
 import matplotlib
-matplotlib.use("agg")
+matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import numpy as np
 
