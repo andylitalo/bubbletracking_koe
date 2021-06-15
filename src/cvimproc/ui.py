@@ -5,7 +5,7 @@ Created on Wed May 20 16:52:03 2015
 """
 
 import matplotlib
-matplotlib.use("agg")
+matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
