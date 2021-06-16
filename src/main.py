@@ -28,6 +28,9 @@ from genl.conversions import *
 # global variables and configurations
 import config as cfg
 
+# GLOBAL VARIABLES TODO -- make these inputs
+d_fn = improc.bubble_distance_v
+
 
 
 def main():
@@ -117,7 +120,8 @@ def main():
     # TODO--how to let user customize list of arguments?
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
-        'highlight_objects_method' : p['highlight_method'],
+        'assign_obj_method' : improc.assign_obj,
+        'highlight_method' : p['highlight_method'], # only used for pure-Python analysis
         'print_freq' : print_freq,
         'start' : p['start'],
         'end' : p['end'],
@@ -134,19 +138,35 @@ def main():
         'mask_data' : mask_data
     }
 
-    assignobjects_kwargs = {'pix_per_um' : pix_per_um,
-        'flow_dir' : flow_dir,  # flow_dir should be in (row, col) format.
-        'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
+    # additional variables required for method to measure distance between objects
+    # TODO how do I make this assignment more general and less function-specific?
+    d_fn_kwargs = {
+        'axis' : flow_dir,
         'row_lo' : row_lo,
         'row_hi' : row_hi,
         'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
-        'min_size_reg' : p['min_size_reg'],
-        'width_border' : p['width_border']
+        'fps' : fn.parse_vid_path(vid_path)['fps'],
     }
 
+    # additional variables required for method used to assign labels to objects
+    assign_kwargs = {
+        'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
+        'd_fn' : d_fn,
+        'd_fn_kwargs' : d_fn_kwargs,
+        'width_border' : p['width_border'],
+        'min_size_reg' : p['min_size_reg'],
+        'row_lo' : row_lo,
+        'row_hi' : row_hi,
+        'remember_objs' : False # TODO -- make this a parameter that can be changed by user
+    }               
+
+    ### OBJECT TRACKING ###
+    # starts timer
     start_time = time.time()
-    objs, frame_IDs = improc.track_object(improc.track_object_cvvidproc,
-        track_kwargs, highlight_kwargs, assignobjects_kwargs, ret_IDs=True)
+    # tracks objects
+    objs, frame_IDs = improc.track_obj(improc.track_obj_cvvidproc,
+        track_kwargs, highlight_kwargs, assign_kwargs, ret_IDs=True)
+    # stops timer and prints result
     print('{0:d} frames analyzed with object-tracking in {1:.3f} s.'.format(
                                         int((p['end']-p['start'])/p['every']),
 					time.time()-start_time))

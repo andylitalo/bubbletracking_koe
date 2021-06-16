@@ -89,7 +89,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
         Frame number from video
     objs_prev : Dictionary of dictionaries
         Contains dictionaries of properties of objects from the previous frame
-        labeled by ID number???
+        indexed by ID number
     objs_archive : dictionary of TrackedObj objects
         Dictionary of objects from all previous frames
     ID_curr : int
@@ -121,6 +121,9 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
     ----------
     .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
+    # TODO remove this print stmt
+    print('Assigning objects; current ID is {0:d}'.format(ID_curr))
+
     # computes frame dimesions
     frame_dim = frame_bw.shape
     # measures region props of each object in image
@@ -244,6 +247,54 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             print('In assign_obj(), IDs looped out of order while saving to archive.')
 
     return ID_curr
+
+
+def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
+                      min_travel=0, upstream_penalty=1E5,
+                    min_off_axis=4, off_axis_steepness=0.3,
+                    alpha=1, beta=1):
+    """
+    Computes the distance between each pair of points in the two sets
+    perpendicular to the axis. All inputs must be numpy arrays.
+    Wiggle room gives forgiveness for a few pixels in case the bubble is
+    stagnant but processing causes the centroid to move a little.
+    
+    This should never be greater than the length of the frame unless bubble2
+    *definitely* does not belong to bubble1 (e.g., if bubble2 is upstream of bubble1).
+    # TODO incorporate velocity profile more accurately into objective
+    """
+    # computes distance between the centroids of the two bubbles [row, col]
+    c1 = np.array(bubble1['centroid'])
+    c2 = np.array(bubble2['centroid'])
+    diff = c2 - c1
+    # computes components on and off axis
+    comp, d_off_axis = geo.calc_comps(diff, axis)
+    
+
+    # computes average distance off central flow axis [pix]
+    row_center = (row_lo + row_hi)/2
+    origin = np.array([row_center, 0])
+    rz1 = c1 - origin
+    _, r1 = geo.calc_comps(rz1, axis)
+    rz2 = c2 - origin
+    _, r2 = geo.calc_comps(rz2, axis)
+    r = (r1 + r2)/2
+    # computes inner stream radius [pix]
+    R = np.abs(row_lo - row_hi)
+    # computes velocity assuming Poiseuille flow [pix/s]
+    v = v_max*(1 - (r/R)**2)
+    # time step per frame [s]
+    dt = 1/fps
+    # expected distance along projected axis [pix]
+    comp_expected = v*dt
+    
+
+    # adds huge penalty if second bubble is upstream of first bubble and a
+    # moderate penalty if it is off the axis or far from expected position
+    d = alpha*d_off_axis + beta*np.abs((comp - comp_expected)/comp_expected) + \
+        upstream_penalty*(comp < min_travel)
+    
+    return d
 
 
 def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
@@ -1302,8 +1353,8 @@ def thresh_im(im, thresh=-1, c=5):
 
     return thresh_im
 
-def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assignobjs_kwargs, ret_IDs=False):
-    objs_archive = track_obj_method(track_kwargs, highlight_kwargs, assignobjs_kwargs)
+def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assign_kwargs, ret_IDs=False):
+    objs_archive = track_obj_method(track_kwargs, highlight_kwargs, assign_kwargs)
 
     # only returns IDs for each frame if requested
     # note: assumes objs_archive is aligned with start/end/every
@@ -1313,15 +1364,80 @@ def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assignobjs_kwarg
     else:
         return objs_archive
 
-def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
+
+def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
+    """
+    Tracks objects using CvVidProc library.
+
+    Parameters
+    ----------
+    track_kwargs : dictionary
+        Variables related to object-tracking, indexed by variable name
+    highlight_kwargs : dictionary
+        Variables related to object-segmentation (highlighting), indexed by variable name
+    assign_kwargs : dictionary
+        Variables related to assigning object labels, indexed by variable name
+    
+    Returns
+    -------
+    objs_archive : dictionary
+        Objects tracked in the video, indexed by ID #
+    """
+    # counts number of frames to analyze
+    end = basic.get_final_frame(track_kwargs['vid_path'], track_kwargs['end'])
+    n_frames = int( (end-track_kwargs['start'])/track_kwargs['every'] )
+
+    # collects parameters for highlighting objects package (CvVidProc param)
+    highlight_objects_pack = cvvidproc.HighlightObjectsPack(
+        background=track_kwargs['bkgd'],
+        struct_element=highlight_kwargs['selem'],
+        threshold=highlight_kwargs['th'],
+        threshold_lo=highlight_kwargs['th_lo'],
+        threshold_hi=highlight_kwargs['th_hi'],
+        min_size_hyst=highlight_kwargs['min_size_hyst'],
+        min_size_threshold=highlight_kwargs['min_size_th'],
+        width_border=highlight_kwargs['width_border'])
+
+    # collects parameters for assigning objects package (CvVidProc param)
+    # note that assigning objects is done purely in Python
+    assign_objects_pack = cvvidproc.AssignObjectsPack(
+        track_kwargs['assign_obj_method'],     # pass in function name for assignment as functor (not string)
+        assign_kwargs)  # arguments for assign_obj_method
+
+    # collects parameters for video management package (CvVidProc param)
+    # fields not defined will be defaulted
+    trackpack = cvvidproc.VidObjectTrackPack(
+        vid_path=track_kwargs['vid_path'],
+        highlight_objects_pack=highlight_objects_pack,
+        assign_objects_pack=assign_objects_pack,
+        frame_limit=n_frames, # must be int
+        grayscale=True, # Whether to interpret the video has grayscale (TODO what's the difference b/w this and next param?)
+        vid_is_grayscale=True, # Whether the video should be treated as already grayscale (optimization)
+        crop_y=assign_kwargs['row_lo'],
+        crop_height=assign_kwargs['row_hi']-assign_kwargs['row_lo'],
+        print_timing_report=True)
+
+    # starts timer
+    print('tracking objects...')
+    start_time = time.time()
+    # tracks objects
+    objs_archive = cvvidproc.TrackObjects(trackpack)
+    # ends timer and prints results
+    end_time = time.time()
+    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(objs_archive), end_time - start_time))
+
+    return objs_archive
+
+
+def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
     vid_path = track_kwargs['vid_path']
-    highlight_obj_method = track_kwargs['highlight_obj_method']
+    highlight_method = track_kwargs['highlight_method']
     print_freq = track_kwargs['print_freq']
     start = track_kwargs['start']
     end = track_kwargs['end']
     every = track_kwargs['every']
-    row_lo = assignobjs_kwargs['row_lo']
-    row_hi = assignobjs_kwargs['row_hi']
+    row_lo = assign_kwargs['row_lo']
+    row_hi = assign_kwargs['row_hi']
 
     """
     ***TODO: install and implement decord VideoReader to speed up loading of
@@ -1333,9 +1449,8 @@ def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
     # initializes counter of current object label (0-indexed)
     ID_curr = 0
     # chooses end frame to be last frame if given as -1
-    if end == -1:
-        end = basic.count_frames(vid_path)
-
+    end = basic.get_final_frame(vid_path, end)
+    
     # loops through frames of video
     for f in range(start, end, every):
 
@@ -1349,10 +1464,10 @@ def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
         val = basic.get_val_channel(frame)
 
         # highlights objects in the given frame
-        objs_bw = highlight_obj_method(val, track_kwargs['bkgd'], **highlight_kwargs)
+        objs_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds objects and assigns IDs to track them, saving to archive
-        ID_curr = assign_obj(objs_bw, f, objs_prev, objs_archive, ID_curr, **assignobjs_kwargs)
+        ID_curr = assign_obj(objs_bw, f, objs_prev, objs_archive, ID_curr, **assign_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
@@ -1361,42 +1476,3 @@ def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
         # print('5 {0:f} ms.'.format(1000*(a5-a4)))
 
     return objs_archive
-
-def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assignobjs_kwargs):
-    highlightpack = cvvidproc.HighlightObjectsPack(
-        background=track_kwargs['bkgd'],
-        struct_element=highlight_kwargs['selem'],
-        threshold=highlight_kwargs['th'],
-        threshold_lo=highlight_kwargs['th_lo'],
-        threshold_hi=highlight_kwargs['th_hi'],
-        min_size_hyst=highlight_kwargs['min_size_hyst'],
-        min_size_threshold=highlight_kwargs['min_size_th'],
-        width_border=highlight_kwargs['width_border'])
-
-    assignpack = cvvidproc.AssignObjectsPack(
-        track_kwargs['assign_obj_method'],     # pass in function name as functor (not string)
-        assignobjs_kwargs)
-
-    # fields not defined will be defaulted
-    trackpack = cvvidproc.VidObjectTrackPack(
-        vid_path=track_kwargs['vid_path'],
-        highlightobjs_pack=highlightpack,
-        assignobjs_pack=assignpack,
-        frame_limit=track_kwargs['end']-track_kwargs['start'],
-        grayscale=True,
-        crop_y=assignobjs_kwargs['row_lo'],
-        crop_height=assignobjs_kwargs['row_hi']-assignobjs_kwargs['row_lo'],
-        print_timing_report=True)
-
-    print('tracking objects...')
-    start_time = time.time()
-
-    objs_archive = cvvidproc.Trackobjects(trackpack)
-
-    end_time = time.time()
-    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(objs_archive), end_time - start_time))
-
-    return objs_archive
-
-
-
