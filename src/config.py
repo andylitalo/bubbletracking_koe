@@ -1,7 +1,7 @@
 """
 config.py
 
-Contains global variables and user-specific parameters
+Contains global objects and user-specific parameters
 for tracking bubbles.
 
 @author: Andy Ylitalo
@@ -17,8 +17,10 @@ data_subdir = 'data'
 figs_subdir = 'figs'
 
 # highlight methods
-highlight_methods = {'highlight_bubble_hyst_thresh' :
-                            improc.highlight_bubble_hyst_thresh}
+highlight_methods = {'highlight_obj_hyst_thresh' :
+                            improc.highlight_obj_hyst_thresh,
+                    'highlight_obj_hyst' :
+                            improc.highlight_obj_hyst}
 
 # colors
 white = (255, 255, 255)
