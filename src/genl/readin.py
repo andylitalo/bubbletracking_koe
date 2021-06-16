@@ -101,9 +101,8 @@ def load_params(input_file):
     p['vid_name'] = params['vid_name']
 
     # if last frame given as -1, returns as final frame of video
-    if p['end'] == -1:
-        p['end'] = basic.count_frames(cfg.input_dir + p['vid_subdir'] + \
-                                                         p['vid_name'])
+    p['end'] = basic.get_final_frame(cfg.input_dir + p['vid_subdir'] + \
+                                        p['vid_name'], p['end'])
         
     return p
 
