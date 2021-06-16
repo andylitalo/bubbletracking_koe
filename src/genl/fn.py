@@ -130,7 +130,7 @@ def parse_vid_path(vid_path):
 
 def read_input_file(input_path, split_char='=', cmnt_char='#'):
     """
-    Loads parameters from input file for tracking bubbles.
+    Loads parameters from input file for tracking objects.
 
     Assumes file format of
     <param> <split_char> <value> <cmnt_char> <comment>

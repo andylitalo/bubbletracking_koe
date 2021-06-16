@@ -33,7 +33,7 @@ import config as cfg
 def parse_args():
     """Parses arguments provided in command line into function parameters."""
     ap = argparse.ArgumentParser(
-        description='Track, label, and analyze bubbles in sheath flow.')
+        description='Track, label, and analyze objects in sheath flow.')
     ap.add_argument('-i', '--input_file', default='input.txt',
                     help='path to input file with remaining parameters')
     ap.add_argument('-c', '--check_mask', default=1, type=int,

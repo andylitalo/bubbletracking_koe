@@ -324,14 +324,14 @@ def six_frame_eda(vid_filepath, f, params, highlight_method, pix_per_um,
     frame, _ = basic.load_frame(vid_filepath, f, bokeh=False)
     # converts to HSV format
     val = basic.get_val_channel(frame)
-    # highlights bubbles and shows each step in the process (6 total)
+    # highlights objects and shows each step in the process (6 total)
     all_steps = highlight_method(val, *params, ret_all_steps=True)
-    im_diff, thresh_bw, closed_bw, bubble_bw, bubble = all_steps
+    im_diff, thresh_bw, closed_bw, obj_bw, obj = all_steps
 
     # collects images to display
     im_list = [bokehfy(val), bokehfy(basic.adjust_brightness(im_diff, 3.0)),
                bokehfy(thresh_bw), bokehfy(closed_bw),
-              bokehfy(bubble_bw), bokehfy(bubble)]
+              bokehfy(obj_bw), bokehfy(obj)]
     title_list = ['Frame {0:d}: Value Channel (HSV)'.format(f),
                   'Subtracted Reference (Value)', 'Thresholded',
                   'Binary Closing', 'Small Obj Removed', 'Holes Filled' + tag]
