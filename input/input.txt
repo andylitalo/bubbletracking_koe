@@ -1,4 +1,4 @@
-input_name = stdev_otsu_7_10 # name for this set of parameters, no apostrophes
+input_name = testv0121 # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
 eta_i = 0.01 # inner stream viscosity [Pa.s]
@@ -19,7 +19,7 @@ th_hi = 39 # high threshold value for hysteresis thresholding
 min_size_hyst = 2 # minimum size of object kept after hysteresis thresholding
 min_size_th = 2 # minimum size of object kept after standard thresholding
 min_size_reg = 2 # minimum size of object to be registered as a bubble
-highlight_method = highlight_bubble_hyst_thresh # method from improc for bubbles
+highlight_method = highlight_obj_hyst_thresh # method from improc for bubbles
 photron = True # True if using Photron NOVA S6, False if using Chronos 1.4
 
 ############################# FILE PARAMETERS ##################################
@@ -27,14 +27,13 @@ photron = True # True if using Photron NOVA S6, False if using Chronos 1.4
 vid_subdir = sd301_co2/20210207_88bar/ # <polyol>_<gas>/yyyymmdd_<pressure>bar/
 
 # video name should follow format required by fn.parse_vid_path:
-# hdr_0000_111_222_3333_44_555_66_7.mp4
+# hdr_0000_111_222_3333_44_55_6.mp4
 # hdr: text header, can include _
 # 0: frame rate (fps)
 # 1: exposure time (us)
 # 2: inner stream flow rate (uL/min)
 # 3: outer stream flow rate (uL/min)
 # 4: distance down stream (mm)
-# 5: power (W)
-# 6: magnification of objective lens (x)
-# 7: number of video (0-indexed)
-vid_name = sd301_co2_15000_001_100_0335_79_100_04_10.mp4 # include ext
+# 5: magnification of objective lens (x)
+# 6: number of video (0-indexed)
+vid_name = sd301_co2_15000_001_100_0335_79_04_10.mp4 # include ext
