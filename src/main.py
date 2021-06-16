@@ -35,21 +35,16 @@ def main():
     ####################### 0) PARSE INPUT ARGUMENTS ###########################
     input_file, check, print_freq, replace, use_prev_bkgd = readin.parse_args()
     # determines filepath to input parameters (.txt file)
-    input_path = cfg.input_dir + input_file
+    input_path = os.path.join(cfg.input_dir, input_file)
 
 
     ######################### 1) PRE-PROCESSING ################################
 
     # loads parameters
     p = readin.load_params(input_path)
-    #input_name, eta_i, eta_o, L, R_o, selem, width_border, \
-    #fig_size_red, num_frames_for_bkgd, \
-    #start, end, every, th, th_lo, th_hi, \
-    #min_size_hyst, min_size_th, min_size_reg, \
-    #highlight_method, vid_subdir, vid_name, expmt_dir = params
 
     # defines filepath to video
-    vid_path = cfg.input_dir + p['vid_subdir'] + p['vid_name']
+    vid_path = os.path.join(cfg.input_dir, p['vid_subdir'], p['vid_name'])
 
     # checks that video has the requested frames
     # subtracts 1 since "end" gives an exclusive upper bound [start, end)
@@ -70,13 +65,14 @@ def main():
         pix_per_um = pix_per_um_chronos[mag]
 
     # defines directory to video data and figures
-    vid_dir = p['vid_subdir'] + os.path.join(p['vid_name'][:-4], p['input_name'])
-    data_dir = cfg.output_dir + vid_dir + cfg.data_subdir
-    figs_dir = cfg.output_dir + vid_dir + cfg.figs_subdir
+    vid_dir = os.path.join(p['vid_subdir'], p['vid_name'][:-4], p['input_name'])
+    data_dir = os.path.join(cfg.output_dir, vid_dir, cfg.data_subdir)
+    figs_dir = os.path.join(cfg.output_dir, vid_dir, cfg.figs_subdir)
 
     # creates directories recursively if they do not exist
     fn.makedirs_safe(data_dir)
     fn.makedirs_safe(figs_dir)
+
     # defines name of data file to save
     data_path = os.path.join(data_dir,
                             'f_{0:d}_{1:d}_{2:d}.pkl'.format(p['start'],
@@ -110,10 +106,6 @@ def main():
             num_frames=p['num_frames_for_bkgd'],
             crop_y=row_lo,
             crop_height=row_hi-row_lo)
-        '''
-        # old method
-        bkgd = improc.compute_bkgd_med(vid_path, num_frames=num_frames_for_bkgd)
-        '''
 
     # computes pressure drop [Pa], inner stream radius [m], and max velocity
     #  [m/s] for Poiseuille sheath flow
@@ -185,7 +177,7 @@ def main():
     data['metadata'] = metadata
 
     # also saves copy of input file and mask file
-    shutil.copyfile(input_path,os.path.join(data_dir, input_file))
+    shutil.copyfile(input_path, os.path.join(data_dir, input_file))
     shutil.copyfile(vid_path[:-4] + '_mask.pkl',
                         os.path.join(data_dir, 'mask.pkl'))
 
