@@ -26,7 +26,7 @@ from genl.conversions import *
 import cvimproc.pltim as pltim
 
 # imports custom classes (with reload clauses)
-from classes.classes import TrackedObject, FileVideoStream
+from classes.classes import Bubble, TrackedObject, FileVideoStream
 
 # import custom opencv video processing methods
 import cvvidproc
@@ -63,7 +63,7 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
+def assign_objs(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
                    d_fn, d_fn_kwargs, width_border=2, min_size_reg=0,
                row_lo=0, row_hi=0, remember_objs=False):
     """
@@ -90,7 +90,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
     objs_prev : Dictionary of dictionaries
         Contains dictionaries of properties of objects from the previous frame
         labeled by ID number???
-    objs_archive : dictionary of TrackedObj objects
+    objs_archive : dictionary of Bubble objects
         Dictionary of objects from all previous frames
     ID_curr : int
         Next ID number to be assigned (increasing order)
@@ -145,7 +145,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the object is deleted from the dictionary
-            if lost_obj(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
+            if lost_bubble(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
                 del objs_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -186,7 +186,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             # column value before, ignores it
             if row in rows_used or col in cols_used:
                 continue
-            # also ignores pairings where the second object is upstream
+            # also ignores pairings where the second bubble is upstream
             # these pairings are marked with a penalty that is
             # larger than the largest distance across the frame
             d_longest = np.linalg.norm(frame_bw.shape)
@@ -217,7 +217,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             centroid_pred = objs_archive[ID].predict_centroid(f)
             # deletes object if centroid is out of bounds or if prediction is
             # based on just 1 data point (so velocity is uncertain)
-            if lost_obj(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
+            if lost_bubble(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
                 del objs_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -225,25 +225,313 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
                 objs_prev[ID]['centroid'] = centroid_pred
 
 
-        # registers each unregistered new input centroid as a object seen
+        # registers each unregistered new input centroid as a bubble seen
         for col in cols_unused:
-            # adds only objects above threshold
+            # adds only bubbles above threshold
             if objs_curr[col]['area'] >= min_size_reg:
                 objs_prev[ID_curr] = objs_curr[col]
                 ID_curr += 1
 
-    # archives objects from this frame in order of increasing ID
+    # archives bubbles from this frame in order of increasing ID
     for ID in objs_prev.keys():
-        # creates new ordered dictionary of objects if new object
+        # creates new ordered dictionary of bubbles if new bubble
         if ID == len(objs_archive):
             metadata = {'ID' : ID, 'fps' : fps, 'frame_dim' : frame_dim}
             objs_archive[ID] = TrackedObject(metadata, props_raw=objs_prev[ID])
         elif ID < len(objs_archive):
             objs_archive[ID].add_props(objs_prev[ID])
         else:
-            print('In assign_obj(), IDs looped out of order while saving to archive.')
+            print('In assign_objs(), IDs looped out of order while saving to archive.')
 
     return ID_curr
+
+
+def assign_bubbles(frame_bw, f, bubbles_prev, bubbles_archive, ID_curr,
+                   flow_dir, fps, pix_per_um, width_border, row_lo, row_hi,
+                   v_max, d_mat_fn, d_mat_kwargs, min_size_reg=0, remember_bubbles=False):
+    """
+    LEGACY -- `assign_objs` is more general.
+    
+    Assigns Bubble objects with unique IDs to the labeled objects on the video
+    frame provided. This method is used on a single frame in the context of
+    processing an entire video and uses information from the previous frame.
+    Inspired by and partially copied from PyImageSearch [1].
+
+    Only registers bubbles above the area threshold. Once registered, a bubble
+    no longer needs to remain above the area threshold.
+
+    Updates bubbles_prev and bubbles_archive in place.
+
+    ***OpenCV-compatible version: labels frame instead of receiving labeled
+    frame by using cv2.connectedComponentsWithStats.
+
+    Parameters
+    ----------
+    frame_bw : (M x N) numpy array of uint8
+        Binarized video frame
+    f : int
+        Frame number from video
+    bubbles_prev : OrderedDict of dictionaries
+        Ordered dictionary of dictionaries of properties of bubbles
+        from the previous frame
+    bubbles_archive : dictionary of Bubble objects
+        Dictionary of bubbles from all previous frames
+    ID_curr : int
+        Next ID number to be assigned (increasing order)
+    flow_dir : numpy array of 2 floats
+        Unit vector indicating the flow direction. Should be in (row, col).
+    fps : float
+        Frames per second of video
+    pix_per_um : float
+        Conversion of pixels per micron (um)
+    width_border : int
+        Number of pixels to remove from border for image processing in
+        ee()
+    row_lo : int
+        Row of lower inner wall
+    row_hi : int
+        Row of upper inner wall
+    v_max : float
+        Maximum velocity expected due to Poiseuille flow [pix/s]
+    min_size_reg : int
+        Bubbles must have a greater area than this threshold to be registered.
+
+    Returns
+    -------
+    ID_curr : int
+        Updated value of next ID number to assign.
+
+    References
+    ----------
+    .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
+    """
+    # measures region props of each object in image
+    bubbles_curr = region_props(frame_bw, n_frame=f, width_border=width_border)
+
+    # if no bubbles seen in previous frame, assigns bubbles in current frame
+    # to new bubble IDs
+    if len(bubbles_prev) == 0:
+        for i in range(len(bubbles_curr)):
+            # only adds large bubbles
+            #print(bubbles_curr[i]['area'])
+            if bubbles_curr[i]['area'] >= min_size_reg:
+                bubbles_prev[ID_curr] = bubbles_curr[i]
+                ID_curr += 1
+
+    # if no bubbles in current frame, removes bubbles from dictionary of
+    # bubbles in the previous frame
+    elif len(bubbles_curr) == 0:
+        for ID in list(bubbles_prev.keys()):
+            # predicts the next centroid for the bubble
+            centroid_pred = bubbles_archive[ID].predict_centroid(f)
+            # if the most recent (possibly predicted) centroid is out of bounds,
+            # or if our prediction comes from a single data point (so the
+            # velocity is uncertain),
+            # then the bubble object is deleted from the dictionary
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive) or (not remember_bubbles):
+                del bubbles_prev[ID]
+            # otherwise, predicts next centroid, keeping other props the same
+            else:
+                bubbles_prev[ID]['frame'] = f
+                bubbles_prev[ID]['centroid'] = centroid_pred
+
+    # otherwise, assigns bubbles in current frames to previous objects based
+    # on distance off flow axis and other parameters (see bubble_distance())
+    else:
+        # grabs the set of object IDs from the previous frame
+        IDs = list(bubbles_prev.keys())
+        # computes M x N matrix of distances (M = # bubbles in previous frame,
+        # N = # bubbles in current frame)
+        d_mat = d_mat_fn(list(bubbles_prev.values()),
+                             bubbles_curr, **d_mat_kwargs)
+
+        ### SOURCE: Much of the next is directly copied from [1]
+        # in order to perform this matching we must (1) find the
+        # smallest value in each row and then (2) sort the row
+        # indexes based on their minimum values so that the row
+        # with the smallest value is at the *front* of the index
+        # list
+        rows = d_mat.min(axis=1).argsort()
+        # next, we perform a similar process on the columns by
+        # finding the smallest value in each column and then
+        # sorting using the previously computed row index list
+        cols = d_mat.argmin(axis=1)[rows]
+        # in order to determine if we need to update, register,
+        # or deregister an object we need to keep track of which
+        # of the rows and column indexes we have already examined
+        rows_used = set()
+        cols_used = set()
+
+        # loops over the combination of the (row, column) index
+        # tuples
+        for (row, col) in zip(rows, cols):
+            # if we have already examined either the row or
+            # column value before, ignores it
+            if row in rows_used or col in cols_used:
+                continue
+            # also ignores pairings where the second bubble is upstream
+            # these pairings are marked with a penalty that is
+            # larger than the largest distance across the frame
+            d_longest = np.linalg.norm(frame_bw.shape)
+            if d_mat[row, col] > d_longest:
+                continue
+
+            # otherwise, grabs the object ID for the current row,
+            # set its new centroid, and reset the disappeared
+            # counter
+            ID = IDs[row]
+            bubbles_prev[ID] = bubbles_curr[col]
+            # indicates that we have examined each of the row and
+            # column indexes, respectively
+            rows_used.add(row)
+            cols_used.add(col)
+
+        # computes both the row and column index we have NOT yet
+        # examined
+        rows_unused = set(range(0, d_mat.shape[0])).difference(rows_used)
+        cols_unused = set(range(0, d_mat.shape[1])).difference(cols_used)
+
+        # loops over the unused row indexes to remove bubbles that disappeared
+        for row in rows_unused:
+            # grabs the object ID for the corresponding row
+            # index and save to archive
+            ID = IDs[row]
+            # predicts next centroid
+            centroid_pred = bubbles_archive[ID].predict_centroid(f)
+            # deletes object if centroid is out of bounds or if prediction is
+            # based on just 1 data point (so velocity is uncertain)
+            if lost_bubble(centroid_pred, frame_bw, ID, bubbles_archive) or (not remember_bubbles):
+                del bubbles_prev[ID]
+            # otherwise, predicts next centroid, keeping other props the same
+            else:
+                bubbles_prev[ID]['frame'] = f
+                bubbles_prev[ID]['centroid'] = centroid_pred
+
+
+        # registers each unregistered new input centroid as a bubble seen
+        for col in cols_unused:
+            # adds only bubbles above threshold
+            if bubbles_curr[col]['area'] >= min_size_reg:
+                bubbles_prev[ID_curr] = bubbles_curr[col]
+                ID_curr += 1
+
+    # archives bubbles from this frame in order of increasing ID
+    for ID in bubbles_prev.keys():
+        # creates new ordered dictionary of bubbles if new bubble
+        if ID == len(bubbles_archive):
+            bubbles_archive[ID] = Bubble(ID, fps, frame_bw.shape, flow_dir,
+                           pix_per_um, props_raw=bubbles_prev[ID])
+        elif ID < len(bubbles_archive):
+            bubbles_archive[ID].add_props(bubbles_prev[ID])
+        else:
+            print('In assign_bubbles(), IDs looped out of order while saving to archive.')
+
+    return ID_curr
+
+
+def bubble_distance(bubble1, bubble2, axis, min_travel=0, upstream_penalty=1E5,
+                    min_off_axis=4, off_axis_steepness=0.3):
+    """
+    LEGACY
+    Computes the distance between each pair of points in the two sets
+    perpendicular to the axis. All inputs must be numpy arrays.
+    Wiggle room gives forgiveness for a few pixels in case the bubble is
+    stagnant but processing causes the centroid to move a little.
+    # TODO incorporate velocity profile into objective
+    """
+    c1 = np.array(bubble1['centroid'])
+    c2 = np.array(bubble2['centroid'])
+    diff = c2 - c1
+    # computes components along and off axis
+    comp, d_off_axis = geo.calc_comps(diff, axis)
+    # adds huge penalty if second bubble is upstream of first bubble and a
+    # moderate penalty if it is off the axis
+    #np.exp(off_axis_steepness*(d_off_axis-min_off_axis)) + \
+    d = d_off_axis + upstream_penalty*(comp < min_travel)
+
+    return d
+
+
+def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
+                      min_travel=0, upstream_penalty=1E5,
+                    min_off_axis=4, off_axis_steepness=0.3,
+                    alpha=1, beta=1):
+    """
+    Computes the distance between each pair of points in the two sets
+    perpendicular to the axis. All inputs must be numpy arrays.
+    Wiggle room gives forgiveness for a few pixels in case the bubble is
+    stagnant but processing causes the centroid to move a little.
+    
+    This should never be greater than the length of the frame unless bubble2
+    *definitely* does not belong to bubble1 (e.g., if bubble2 is upstream of bubble1).
+    # TODO incorporate velocity profile more accurately into objective
+    """
+    # computes distance between the centroids of the two bubbles [row, col]
+    c1 = np.array(bubble1['centroid'])
+    c2 = np.array(bubble2['centroid'])
+    diff = c2 - c1
+    # computes components on and off axis
+    comp, d_off_axis = geo.calc_comps(diff, axis)
+    
+
+    # computes average distance off central flow axis [pix]
+    row_center = (row_lo + row_hi)/2
+    origin = np.array([row_center, 0])
+    rz1 = c1 - origin
+    _, r1 = geo.calc_comps(rz1, axis)
+    rz2 = c2 - origin
+    _, r2 = geo.calc_comps(rz2, axis)
+    r = (r1 + r2)/2
+    # computes inner stream radius [pix]
+    R = np.abs(row_lo - row_hi)
+    # computes velocity assuming Poiseuille flow [pix/s]
+    v = v_max*(1 - (r/R)**2)
+    # time step per frame [s]
+    dt = 1/fps
+    # expected distance along projected axis [pix]
+    comp_expected = v*dt
+    
+
+    # adds huge penalty if second bubble is upstream of first bubble and a
+    # moderate penalty if it is off the axis or far from expected position
+    d = alpha*d_off_axis + beta*np.abs((comp - comp_expected)/comp_expected) + \
+        upstream_penalty*(comp < min_travel)
+    
+    return d
+
+
+def bubble_d_mat(bubbles1, bubbles2, axis, v_max, row_lo, row_hi, fps):
+    """
+    Computes the distance between each pair of bubbles and organizes into a
+    matrix.
+    
+    LEGACY--only useful for bubbles. See `obj_d_mat` for more gen'l method.
+    """
+    M = len(bubbles1)
+    N = len(bubbles2)
+    d_mat = np.zeros([M, N])
+    for i, bubble1 in enumerate(bubbles1):
+        for j, bubble2 in enumerate(bubbles2):
+            d_mat[i,j] = bubble_distance_v(bubble1, bubble2, axis, v_max,
+                                           row_lo, row_hi, fps)
+
+    return d_mat
+
+
+
+def bubble_d_mat_legacy(bubbles1, bubbles2, axis):
+    """
+    Computes the distance between each pair of bubbles and organizes into a
+    matrix.
+    """
+    M = len(bubbles1)
+    N = len(bubbles2)
+    d_mat = np.zeros([M, N])
+    for i, bubble1 in enumerate(bubbles1):
+        for j, bubble2 in enumerate(bubbles2):
+            d_mat[i,j] = bubble_distance(bubble1, bubble2, axis)
+
+    return d_mat
 
 
 def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
@@ -279,6 +567,7 @@ def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
     return bkgd_mean
 
     
+
 def compute_bkgd_med(vid_path, num_frames=100):
     """
     Same as compute_bkgd_med_thread() but does not use threading. More reliable
@@ -367,12 +656,12 @@ def d_euclid_bw_obj(obj1, obj2):
 
 def find_label(frame_labeled, rc, cc):
     """
-    Returns the label for the object with the given centroid coordinates.
+    Returns the label for the bubble with the given centroid coordinates.
     Typically, this is just the value of the labeled frame at the integer
-    values of the centroid coordinates, but for concave object shapes, the
+    values of the centroid coordinates, but for concave bubble shapes, the
     integer values of the centroid coordinates might not designate a pixel
-    that is inside the object. This algortihm continues the search to find
-    a pixel that is indeed inside the object and get its label.
+    that is inside the bubble. This algortihm continues the search to find
+    a pixel that is indeed inside the bubble and get its label.
 
     Parameters
     ----------
@@ -432,10 +721,10 @@ def frame_and_fill(im, w=2):
     # make the tops and bottoms black so only the sides are kept
     mask_frame_sides[0:w,:] = 0
     mask_frame_sides[-w:-1,:] = 0
-    # frames sides of filled object image
+    # frames sides of filled bubble image
     im_framed = np.logical_or(im, mask_frame_sides)
-    # fills in open space in the middle of the object that might not get
-    # filled if object is on the edge of the frame (because then that
+    # fills in open space in the middle of the bubble that might not get
+    # filled if bubble is on the edge of the frame (because then that
     # open space is not completely bounded)
     im_filled = basic.fill_holes(im_framed)
     im = mask_im(im_filled, np.logical_not(mask_frame_sides))
@@ -466,17 +755,17 @@ def get_angle_correction(im_labeled):
     return angle_correction
 
 
-def get_frame_IDs(objs_archive, start, end, every):
-    """Returns list of IDs of objects in each frame"""
+def get_frame_IDs(bubbles_archive, start, end, every):
+    """Returns list of IDs of bubbles in each frame"""
     # TODO: fix bug when every != 1
     # initializes dictionary of IDs for each frame
     frame_IDs = {}
     for f in range(start, end, every):
         frame_IDs[f] = []
-    # loads IDs of objects found in each frame
-    for ID in objs_archive.keys():
-        obj = objs_archive[ID]
-        frames = obj.get_props('frame')
+    # loads IDs of bubbles found in each frame
+    for ID in bubbles_archive.keys():
+        bubble = bubbles_archive[ID]
+        frames = bubble.get_props('frame')
         for f in frames:
             frame_IDs[f] += [ID]
 
@@ -502,12 +791,12 @@ def get_points(Npoints=1,im=None):
     return pp
 
 
-def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
+def highlight_bubble(frame, bkgd, th_lo, th_hi, min_size, selem,
                      width_border=2, ret_all_steps=False):
-    """Highlights objects in frame."""
+    """Highlights bubbles in frame."""
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
-    # based on assumption that objects are darker than bkgd, ignore all 
+    # based on assumption that bubbles are darker than bkgd, ignore all 
     # pixels that are brighter than the background by setting to zero
     im_diff[frame > bkgd] = 0
 
@@ -520,24 +809,24 @@ def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
     # removes small objects
     small_obj_rm = remove_small_objects(opened, min_size_hyst)
     # fills in holes, including those that might be cut off at border
-    highlighted_objs = frame_and_fill(small_obj_rm, width_border)
+    highlighted_bubbles = frame_and_fill(small_obj_rm, width_border)
 
     if ret_all_steps:
         return im_diff, thresh_bw, opened, \
-                small_obj_rm, highlighted_objs
+                small_obj_rm, highlighted_bubbles
     else:
-        return highlighted_objs
+        return highlighted_bubbles
     
     
-def highlight_obj_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
+def highlight_bubble_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
                           min_size, ret_all_steps=False):
     """
-    Version of highlight_obj() that uses a hysteresis filter.
+    Version of highlight_bubble() that uses a hysteresis filter.
     """
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_obj_hyst() only accepts 2D frames.'
+        'improc.highlight_bubble_hyst() only accepts 2D frames.'
     assert th_lo < th_hi, \
-        'In improc.highlight_objs_hyst(), low threshold must be lower.'
+        'In improc.highlight_bubbles_hyst(), low threshold must be lower.'
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
@@ -549,37 +838,37 @@ def highlight_obj_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     # smooths out thresholded image
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
-    obj_bw = remove_small_objects(closed_bw, min_size)
+    bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills in holes, including those that might be cut off at border
-    obj = frame_and_fill(obj_part_bw, width_border)
+    bubble = frame_and_fill(bubble_part_bw, width_border)
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
-        return im_diff, thresh_bw, closed_bw, obj_bw, \
-                obj
+        return im_diff, thresh_bw, closed_bw, bubble_bw, \
+                bubble
     else:
-        return obj
+        return bubble
 
 
-def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
+def highlight_bubble_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
                                  min_size_th, width_border, selem, mask_data,
                                  ret_all_steps=False):
     """
-    Version of highlight_obj() that first performs a low threshold and
-    high minimum size to get faint, large objects, and then performs a higher
+    Version of highlight_bubble() that first performs a low threshold and
+    high minimum size to get faint, large bubbles, and then performs a higher
     hysteresis threshold with a low minimum size to get distinct, small
-    objects.
+    bubbles.
 
     Only accepts 2D frames.
     """
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_obj_hyst_thresh() only accepts 2D frames.'
+        'improc.highlight_bubble_hyst_thresh() only accepts 2D frames.'
     assert th_lo < th_hi, \
-        'In improc.highlight_objs_hyst_thresh(), low threshold must be lower.'
+        'In improc.highlight_bubbles_hyst_thresh(), low threshold must be lower.'
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
-    # based on assumption that objects are darker than bkgd, ignore all 
+    # based on assumption that bubbles are darker than bkgd, ignore all 
     # pixels that are brighter than the background by setting to zero
     im_diff[frame > bkgd] = 0
 
@@ -589,9 +878,9 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # smooths out thresholded image
     closed_bw_1 = cv2.morphologyEx(thresh_bw_1, cv2.MORPH_OPEN, selem)
     # removes small objects
-    obj_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
+    bubble_bw_1 = remove_small_objects(closed_bw_1, min_size_th)
     # fills enclosed holes with white, but leaves open holes black
-    obj_1 = basic.fill_holes(obj_bw_1)
+    bubble_1 = basic.fill_holes(bubble_bw_1)
 
     ################# HYSTERESIS THRESHOLD AND LOW MIN SIZE ###################
     # thresholds image to become black-and-white
@@ -602,33 +891,32 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     # smooths out thresholded image
     closed_bw_2 = cv2.morphologyEx(thresh_bw_2, cv2.MORPH_OPEN, selem)
     # removes small objects
-    obj_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
+    bubble_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
     # fills in holes, including those that might be cut off at border
-    obj_2 = frame_and_fill(obj_bw_2, width_border)
+    bubble_2 = frame_and_fill(bubble_bw_2, width_border)
 
     # merges images to create final image and masks result
-    obj = np.logical_or(obj_1, obj_2)
-    # TODO determine if I want to mask here
+    bubble = np.logical_or(bubble_1, bubble_2)
     #if mask_data is not None:
-    #    obj = np.logical_and(obj, mask_data['mask'])
+    #    bubble = np.logical_and(bubble, mask_data['mask'])
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
-        return im_diff, thresh_bw_1, obj_1, thresh_bw_2, \
-                obj_2, obj
+        return im_diff, thresh_bw_1, bubble_1, thresh_bw_2, \
+                bubble_2, bubble
     else:
-        return obj
+        return bubble
 
 
-def highlight_obj_thresh(frame, bkgd, thresh, width_border, selem, min_size,
+def highlight_bubble_thresh(frame, bkgd, thresh, width_border, selem, min_size,
                      ret_all_steps=False):
     """
-    Highlights objects (regions of different brightness) with white and
+    Highlights bubbles (regions of different brightness) with white and
     turns background black. Ignores edges of the frame.
     Only accepts 2D frames.
     """
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_obj() only accepts 2D frames.'
+        'improc.highlight_bubble() only accepts 2D frames.'
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
@@ -637,15 +925,15 @@ def highlight_obj_thresh(frame, bkgd, thresh, width_border, selem, min_size,
     # smooths out thresholded image
     closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
-    obj_bw = remove_small_objects(closed_bw, min_size)
+    bubble_bw = remove_small_objects(closed_bw, min_size)
     # fills in holes, including those that might be cut off at border
-    obj = frame_and_fill(obj_part_filled, width_border)
+    bubble = frame_and_fill(bubble_part_filled, width_border)
 
     # returns intermediate steps if requested.
     if ret_all_steps:
-        return im_diff, thresh_bw, closed_bw, obj_bw, obj
+        return im_diff, thresh_bw, closed_bw, bubble_bw, bubble
     else:
-        return obj
+        return bubble
 
 
 def hysteresis_threshold(im, th_lo, th_hi):
@@ -704,39 +992,39 @@ def is_on_border(bbox, im, width_border):
         return False
 
 
-def lost_obj(centroid_pred, frame_labeled, ID, objs_archive):
+def lost_bubble(centroid_pred, frame_labeled, ID, bubbles_archive):
     """
-    Determines if object is "lost" and thus not worth tracking anymore in the
-    case that the object is not detected in a frame.
+    Determines if bubble is "lost" and thus not worth tracking anymore in the
+    case that the bubble is not detected in a frame.
 
-    The object is "lost" if:
+    The bubble is "lost" if:
         1) the predicted location of its centroid is out of the boundaries of
         the frame
-        2) the object has only been spotted once (so we don't have a good
+        2) the bubble has only been spotted once (so we don't have a good
         estimate of where the centroid would be so it's possible it is out of
         bounds)
 
     Parameters
     ----------
     centroid_pred : 2-tuple of floats
-        (row, col) coordinates predicted for centroid of object (see
-        TrackedObj.predict_centroid())
+        (row, col) coordinates predicted for centroid of bubble (see
+        Bubble.predict_centroid())
     frame_labeled : (M x N) numpy array of uint8
-        Frame whose pixel values are the ID numbers of the objects where the
-        pixels are located (0 if not part of a object)
+        Frame whose pixel values are the ID numbers of the bubbles where the
+        pixels are located (0 if not part of a bubble)
     ID : int
-        ID number of object assigned in assign_obj()
-    objs_archive : dictionary of TrackedObj objects
-        Dictionary of objects registered by ID number
+        ID number of bubble assigned in assign_bubbles()
+    bubbles_archive : dictionary of Bubble objects
+        Dictionary of bubbles registered by ID number
 
     Returns
     -------
     lost : bool
-        If True, object is deemed lost. Otherwise deemed detectable in future
+        If True, bubble is deemed lost. Otherwise deemed detectable in future
         frames.
     """
     lost = out_of_bounds(centroid_pred, frame_labeled.shape) or \
-                    (len(objs_archive[ID].get_props('frame')) < 2)
+                    (len(bubbles_archive[ID].get_props('frame')) < 2)
     return lost
 
 
@@ -842,7 +1130,7 @@ def obj_d_mat(objs_prev, objs_curr, d_fn, d_fn_kwargs):
     """
     Computes the distance matrix of distances between each pair of previous
     and current objects based on the metric function given.
-    Used in `assign_obj`.
+    Used in `assign_objs`.
     
     Parameters
     ----------
@@ -1086,26 +1374,26 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     objs_curr = []
     # records stats of each labeled object; skips 0-label (background)
     for i in range(1, num_labels):
-        # creates dictionary of object properties for one frame, which
-        # can be merged to a Tracked object
-        obj = {}
+        # creates dictionary of bubble properties for one frame, which
+        # can be merged to a Bubble object
+        bubble = {}
         # switches default (x,y) -> (row, col)
-        obj['centroid'] = centroids[i][::-1]
-        obj['area'] = stats[i, cv2.CC_STAT_AREA]
+        bubble['centroid'] = centroids[i][::-1]
+        bubble['area'] = stats[i, cv2.CC_STAT_AREA]
         row_min = stats[i, cv2.CC_STAT_TOP]
         col_min = stats[i, cv2.CC_STAT_LEFT]
         row_max = row_min + stats[i, cv2.CC_STAT_HEIGHT]
         col_max = col_min + stats[i, cv2.CC_STAT_WIDTH]
         bbox = (row_min, col_min, row_max, col_max)
-        obj['bbox'] = bbox
+        bubble['bbox'] = bbox
 
         if n_frame >= 0:
-            obj['frame'] = n_frame
+            bubble['frame'] = n_frame
 
-        obj['on border'] = is_on_border(bbox,
+        bubble['on border'] = is_on_border(bbox,
               frame_labeled, width_border)
-        # adds dictionary for this object to list of objects in current frame
-        objs_curr += [obj]
+        # adds dictionary for this bubble to list of bubbles in current frame
+        objs_curr += [bubble]
 
     return objs_curr
 
@@ -1121,13 +1409,13 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
-    objs = []
+    bubbles = []
 
     # records stats of each labeled object; skips 0-label (background)
     for i, cnt in enumerate(cnts):
-        # creates dictionary of object properties for one frame, which
-        # can be merged to a TrackedObj object
-        obj = {}
+        # creates dictionary of bubble properties for one frame, which
+        # can be merged to a Bubble object
+        bubble = {}
 
         # computes moments of contour
         M = cv2.moments(cnt)
@@ -1136,7 +1424,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
         #https://docs.opencv.org/master/dd/d49/tutorial_py_contour_features.html
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
-        obj['centroid'] = (cy, cx)
+        bubble['centroid'] = (cy, cx)
 
         # computes number of pixels in object (area)
         #https://docs.opencv.org/master/d1/d32/tutorial_py_contour_properties.html
@@ -1145,14 +1433,14 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
         # records length of list of nonzero pixels
         # TODO -- VALIDATE! Doesn't seem to work properly for counting pixels
         num_pixels = len(cv2.findNonZero(mask))
-        obj['area'] = num_pixels
+        bubble['area'] = num_pixels
 
         # computes bounding box
         col_min, row_min, w, h = cv2.boundingRect(cnt)
         row_max = row_min + h
         col_max = col_min + w
         bbox = (row_min, col_min, row_max, col_max)
-        obj['bbox'] = bbox
+        bubble['bbox'] = bbox
 
         # fits ellipse to compute major and minor axes, orientation; needs at
         # least 5 points to fit ellipse
@@ -1166,22 +1454,22 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
                 ma = min(w, h)
                 angle = 0
             # stores results
-            obj['orientation'] = angle
-            obj['major axis'] = MA
-            obj['minor axis'] = ma
+            bubble['orientation'] = angle
+            bubble['major axis'] = MA
+            bubble['minor axis'] = ma
 
         # saves frame number
         if n_frame >= 0:
-            obj['frame'] = n_frame
+            bubble['frame'] = n_frame
 
         # checks if object is on the border of the frame
-        obj['on border'] = is_on_border(bbox,
+        bubble['on border'] = is_on_border(bbox,
               frame_bw, width_border)
 
-        # adds dictionary for this object to list of objects in current frame
-        objs += [obj]
+        # adds dictionary for this bubble to list of bubbles in current frame
+        bubbles += [bubble]
 
-    return objs
+    return bubbles
 
 
 def remove_small_objects(im, min_size):
@@ -1302,35 +1590,35 @@ def thresh_im(im, thresh=-1, c=5):
 
     return thresh_im
 
-def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assignobjs_kwargs, ret_IDs=False):
-    objs_archive = track_obj_method(track_kwargs, highlight_kwargs, assignobjs_kwargs)
+def track_bubble(track_bubble_method, track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=False):
+    bubbles_archive = track_bubble_method(track_kwargs, highlight_kwargs, assignbubbles_kwargs)
 
     # only returns IDs for each frame if requested
-    # note: assumes objs_archive is aligned with start/end/every
+    # note: assumes bubbles_archive is aligned with start/end/every
     if ret_IDs:
-        frame_IDs = get_frame_IDs(objs_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
-        return objs_archive, frame_IDs
+        frame_IDs = get_frame_IDs(bubbles_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
+        return bubbles_archive, frame_IDs
     else:
-        return objs_archive
+        return bubbles_archive
 
-def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
+def track_bubble_py(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
     vid_path = track_kwargs['vid_path']
-    highlight_obj_method = track_kwargs['highlight_obj_method']
+    highlight_bubble_method = track_kwargs['highlight_bubble_method']
     print_freq = track_kwargs['print_freq']
     start = track_kwargs['start']
     end = track_kwargs['end']
     every = track_kwargs['every']
-    row_lo = assignobjs_kwargs['row_lo']
-    row_hi = assignobjs_kwargs['row_hi']
+    row_lo = assignbubbles_kwargs['row_lo']
+    row_hi = assignbubbles_kwargs['row_hi']
 
     """
     ***TODO: install and implement decord VideoReader to speed up loading of
     frames: https://github.com/dmlc/decord***
     """
-    # initializes ordered dictionary of object data from past frames and archive of all data
-    objs_prev = OrderedDict()
-    objs_archive = {}
-    # initializes counter of current object label (0-indexed)
+    # initializes ordered dictionary of bubble data from past frames and archive of all data
+    bubbles_prev = OrderedDict()
+    bubbles_archive = {}
+    # initializes counter of current bubble label (0-indexed)
     ID_curr = 0
     # chooses end frame to be last frame if given as -1
     if end == -1:
@@ -1348,11 +1636,11 @@ def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
         # extracts value channel of frame--including selem ruins segmentation
         val = basic.get_val_channel(frame)
 
-        # highlights objects in the given frame
-        objs_bw = highlight_obj_method(val, track_kwargs['bkgd'], **highlight_kwargs)
+        # highlights bubbles in the given frame
+        bubbles_bw = highlight_bubble_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
-        # finds objects and assigns IDs to track them, saving to archive
-        ID_curr = assign_obj(objs_bw, f, objs_prev, objs_archive, ID_curr, **assignobjs_kwargs)
+        # finds bubbles and assigns IDs to track them, saving to archive
+        ID_curr = assign_bubbles(bubbles_bw, f, bubbles_prev, bubbles_archive, ID_curr, **assignbubbles_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
@@ -1360,10 +1648,10 @@ def track_obj_py(track_kwargs, highlight_kwargs, assignobjs_kwargs):
         # a5 = time.time()
         # print('5 {0:f} ms.'.format(1000*(a5-a4)))
 
-    return objs_archive
+    return bubbles_archive
 
-def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assignobjs_kwargs):
-    highlightpack = cvvidproc.HighlightObjectsPack(
+def track_bubble_cvvidproc(track_kwargs, highlight_kwargs, assignbubbles_kwargs):
+    highlightpack = cvvidproc.HighlightBubblesPack(
         background=track_kwargs['bkgd'],
         struct_element=highlight_kwargs['selem'],
         threshold=highlight_kwargs['th'],
@@ -1373,30 +1661,30 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assignobjs_kwargs):
         min_size_threshold=highlight_kwargs['min_size_th'],
         width_border=highlight_kwargs['width_border'])
 
-    assignpack = cvvidproc.AssignObjectsPack(
-        track_kwargs['assign_obj_method'],     # pass in function name as functor (not string)
-        assignobjs_kwargs)
+    assignpack = cvvidproc.AssignBubblesPack(
+        track_kwargs['assign_bubbles_method'],     # pass in function name as functor (not string)
+        assignbubbles_kwargs)
 
     # fields not defined will be defaulted
-    trackpack = cvvidproc.VidObjectTrackPack(
+    trackpack = cvvidproc.VidBubbleTrackPack(
         vid_path=track_kwargs['vid_path'],
-        highlightobjs_pack=highlightpack,
-        assignobjs_pack=assignpack,
+        highlightbubbles_pack=highlightpack,
+        assignbubbles_pack=assignpack,
         frame_limit=track_kwargs['end']-track_kwargs['start'],
         grayscale=True,
-        crop_y=assignobjs_kwargs['row_lo'],
-        crop_height=assignobjs_kwargs['row_hi']-assignobjs_kwargs['row_lo'],
+        crop_y=assignbubbles_kwargs['row_lo'],
+        crop_height=assignbubbles_kwargs['row_hi']-assignbubbles_kwargs['row_lo'],
         print_timing_report=True)
 
     print('tracking objects...')
     start_time = time.time()
 
-    objs_archive = cvvidproc.Trackobjects(trackpack)
+    bubbles_archive = cvvidproc.TrackBubbles(trackpack)
 
     end_time = time.time()
-    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(objs_archive), end_time - start_time))
+    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(bubbles_archive), end_time - start_time))
 
-    return objs_archive
+    return bubbles_archive
 
 
 

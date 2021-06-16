@@ -222,7 +222,7 @@ def get_val_channel(frame, selem=None):
     """
     # Convert reference frame to HSV
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # Only interested in "value" channel to distinguish bubbles, filters result
+    # Only interested in "value" channel to distinguish objects, filters result
     val = hsv[:,:,2] #skimage.filters.median(hsv[:,:,2], selem=selem).astype('uint8')
 
     return val

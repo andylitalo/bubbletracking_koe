@@ -3,8 +3,10 @@
 Created on Mon May 11 11:24:27 2020
 
 @author: Andy
-the Bubble class stores properties of a bubble from a video, both measured and
-processed post factum.
+The TrackedObj class stores properties of an object that was identified and
+tracked in a video and can process some of those properties to derive new ones.
+The Bubble class is a sub-class of the TrackedObj class and includes some 
+methods specific to the flow of bubbles down a stream.
 """
 import numpy as np
 import sys
