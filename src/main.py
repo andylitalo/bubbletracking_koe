@@ -1,6 +1,5 @@
 """
-track_bubbles.py highlights, labels, and analyzes bubbles in videos of bubble
-nucleation and growth in sheath flow.
+track_objs.py highlights, labels, and analyzes objects in videos
 
 @author Andy Ylitalo
 @date October 19, 2020
@@ -94,7 +93,7 @@ def main():
     first_frame, _ = basic.load_frame(vid_path, 0)
     flow_dir, mask_data = ui.click_sheath_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
-    # computes minimum and maximum rows for bubble tracking computation
+    # computes minimum and maximum rows for object tracking computation
     row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
 
     # gets background for image subtraction later on
@@ -121,12 +120,12 @@ def main():
     dp, R_i, v_max = flow.get_dp_R_i_v_max(p['eta_i'], p['eta_o'], p['L'],
                                         Q_i, Q_o, p['R_o'], SI=True)
 
-    ######################## 2) TRACK BUBBLES ##################################
-    # organizes arguments for bubble segmentation function
+    ######################## 2) TRACK OBJECTS ##################################
+    # organizes arguments for object segmentation function
     # TODO--how to let user customize list of arguments?
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
-        'highlight_bubble_method' : p['highlight_method'],
+        'highlight_objects_method' : p['highlight_method'],
         'print_freq' : print_freq,
         'start' : p['start'],
         'end' : p['end'],
@@ -143,7 +142,7 @@ def main():
         'mask_data' : mask_data
     }
 
-    assignbubbles_kwargs = {'pix_per_um' : pix_per_um,
+    assignobjects_kwargs = {'pix_per_um' : pix_per_um,
         'flow_dir' : flow_dir,  # flow_dir should be in (row, col) format.
         'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
         'row_lo' : row_lo,
@@ -154,21 +153,21 @@ def main():
     }
 
     start_time = time.time()
-    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
-        track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
-    print('{0:d} frames analyzed with bubble-tracking in {1:.3f} s.'.format(
+    objs, frame_IDs = improc.track_object(improc.track_object_cvvidproc,
+        track_kwargs, highlight_kwargs, assignobjects_kwargs, ret_IDs=True)
+    print('{0:d} frames analyzed with object-tracking in {1:.3f} s.'.format(
                                         int((p['end']-p['start'])/p['every']),
 					time.time()-start_time))
 
     ######################## 3) PROCESS DATA ###################################
     # computes velocity at interface of inner stream [m/s]
     v_inner = flow.v_inner(Q_i, Q_o, p['eta_i'], p['eta_o'], p['R_o'], p['L'])
-    for ID in bubbles.keys():
-        bubble = bubbles[ID]
+    for ID in objs.keys():
+        obj = objs[ID]
         # computes average speed [m/s]
-        bubble.proc_props()
+        obj.proc_props()
         # compares average speed to cutoff [m/s]
-        bubble.classify(v_inner)
+        obj.classify(v_inner)
 
     ########################## 4) SAVE RESULTS #################################
     # stores metadata (I will not store video parameters or parameters from the
@@ -181,7 +180,7 @@ def main():
 
     # stores data
     data = {}
-    data['bubbles'] = bubbles
+    data['objs'] = objs
     data['frame IDs'] = frame_IDs
     data['metadata'] = metadata
 
