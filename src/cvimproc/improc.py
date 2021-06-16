@@ -63,7 +63,7 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
+def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
                    d_fn, d_fn_kwargs, width_border=2, min_size_reg=0,
                row_lo=0, row_hi=0, remember_objs=False):
     """
@@ -83,7 +83,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
 
     Parameters
     ----------
-    frame_bw : (M x N) numpy array of uint8
+    bw_frame : (M x N) numpy array of uint8
         Binarized video frame
     f : int
         Frame number from video
@@ -125,9 +125,9 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
     print('Assigning objects; current ID is {0:d}'.format(ID_curr))
 
     # computes frame dimesions
-    frame_dim = frame_bw.shape
+    frame_dim = bw_frame.shape
     # measures region props of each object in image
-    objs_curr = region_props(frame_bw, n_frame=f, width_border=width_border)
+    objs_curr = region_props(bw_frame, n_frame=f, width_border=width_border)
 
     # if no objects seen in previous frame, assigns objects in current frame
     # to new IDs
@@ -148,7 +148,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the object is deleted from the dictionary
-            if lost_obj(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
+            if lost_obj(centroid_pred, bw_frame, ID, objs_archive) or (not remember_objs):
                 del objs_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -192,7 +192,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             # also ignores pairings where the second object is upstream
             # these pairings are marked with a penalty that is
             # larger than the largest distance across the frame
-            d_longest = np.linalg.norm(frame_bw.shape)
+            d_longest = np.linalg.norm(bw_frame.shape)
             if d_mat[row, col] > d_longest:
                 continue
 
@@ -220,7 +220,7 @@ def assign_obj(frame_bw, f, objs_prev, objs_archive, ID_curr, fps,
             centroid_pred = objs_archive[ID].predict_centroid(f)
             # deletes object if centroid is out of bounds or if prediction is
             # based on just 1 data point (so velocity is uncertain)
-            if lost_obj(centroid_pred, frame_bw, ID, objs_archive) or (not remember_objs):
+            if lost_obj(centroid_pred, bw_frame, ID, objs_archive) or (not remember_objs):
                 del objs_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
@@ -1116,15 +1116,15 @@ def proc_im_seq(im_path_list, proc_fn, params, columns=None):
     return output
 
 
-def region_props(frame_bw, n_frame=-1, width_border=5):
+def region_props(bw_frame, n_frame=-1, width_border=5):
     """
     Computes properties of objects in a binarized image using OpenCV.
     """
-    frame_bw = basic.cvify(frame_bw)
-    return region_props_connected(frame_bw, n_frame=n_frame, width_border=width_border)
+    bw_frame = basic.cvify(bw_frame)
+    return region_props_connected(bw_frame, n_frame=n_frame, width_border=width_border)
 
 
-def region_props_connected(frame_bw, n_frame=-1, width_border=5):
+def region_props_connected(bw_frame, n_frame=-1, width_border=5):
     """
     Computes properties of objects in a binarized image that would otherwise be
     provided by region_props using an OpenCV hack.
@@ -1132,7 +1132,7 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     This version is based on connectedComponentsWithStats.
     """
     # identifies the different objects in the frame
-    num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(frame_bw)
+    num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(bw_frame)
     # creates dictionaries of properties for each object
     objs_curr = []
     # records stats of each labeled object; skips 0-label (background)
@@ -1161,7 +1161,7 @@ def region_props_connected(frame_bw, n_frame=-1, width_border=5):
     return objs_curr
 
 
-def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
+def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
     """
     Computes properties of objects in a binarized image that would otherwise be
     provided by region_props using an OpenCV hack.
@@ -1169,7 +1169,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
     This version is based on findContours.
     """
     # computes contours of all objects in image
-    cnts, _ = cv2.findContours(frame_bw, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(bw_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
     objs = []
@@ -1191,7 +1191,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
 
         # computes number of pixels in object (area)
         #https://docs.opencv.org/master/d1/d32/tutorial_py_contour_properties.html
-        mask = np.zeros(frame_bw.shape, np.uint8)
+        mask = np.zeros(bw_frame.shape, np.uint8)
         cv2.drawContours(mask, [cnt], 0, 255, -1)
         # records length of list of nonzero pixels
         # TODO -- VALIDATE! Doesn't seem to work properly for counting pixels
@@ -1227,7 +1227,7 @@ def region_props_find(frame_bw, n_frame=-1, width_border=5, ellipse=True):
 
         # checks if object is on the border of the frame
         obj['on border'] = is_on_border(bbox,
-              frame_bw, width_border)
+              bw_frame, width_border)
 
         # adds dictionary for this object to list of objects in current frame
         objs += [obj]
