@@ -1,6 +1,8 @@
 """
 improc.py contains definitions of methods for image-processing
 using OpenCV EXCLUSIVELY.
+
+TODO: obj or object? CvVidProc prefers "object"
 """
 
 # imports standard libraries
@@ -63,9 +65,9 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
+def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_curr, fps,
                    d_fn, d_fn_kwargs, width_border=2, min_size_reg=0,
-               row_lo=0, row_hi=0, remember_objs=False):
+               row_lo=0, row_hi=0, remember_objects=False):
     """
     Assigns objects with unique IDs to the labeled objects on the video
     frame provided. This method is used on a single frame in the context of
@@ -76,7 +78,7 @@ def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
     Once registered, an object no longer needs to remain above the 
     area threshold.
 
-    Updates objs_prev and objs_archive in place.
+    Updates objects_prev and objects_archive in place.
 
     ***OpenCV-compatible version: labels frame instead of receiving labeled
     frame by using cv2.connectedComponentsWithStats.
@@ -85,12 +87,13 @@ def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
     ----------
     bw_frame : (M x N) numpy array of uint8
         Binarized video frame
-    f : int
-        Frame number from video
-    objs_prev : Dictionary of dictionaries
+    frames_processed : int
+        Number of the current frame in video
+        # TODO change back to `f` in CvVidProc since != frames processed if every != 1 or start != 0
+    objects_prev : Dictionary of dictionaries
         Contains dictionaries of properties of objects from the previous frame
         indexed by ID number
-    objs_archive : dictionary of TrackedObj objects
+    objects_archive : dictionary of TrackedObj objects
         Dictionary of objects from all previous frames
     ID_curr : int
         Next ID number to be assigned (increasing order)
@@ -121,49 +124,51 @@ def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
     ----------
     .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
-    # TODO remove this print stmt
-    print('Assigning objects; current ID is {0:d}'.format(ID_curr))
+    # TODO remove this defn
+    f = frames_processed
+    objects_prev = objects_prev
+    objects_archive = objects_archive
 
     # computes frame dimesions
     frame_dim = bw_frame.shape
     # measures region props of each object in image
-    objs_curr = region_props(bw_frame, n_frame=f, width_border=width_border)
+    objects_curr = region_props(bw_frame, n_frame=f, width_border=width_border)
 
     # if no objects seen in previous frame, assigns objects in current frame
     # to new IDs
-    if len(objs_prev) == 0:
-        for i in range(len(objs_curr)):
+    if len(objects_prev) == 0:
+        for i in range(len(objects_curr)):
             # only registers objects larger than a minimum size
-            if objs_curr[i]['area'] >= min_size_reg:
-                objs_prev[ID_curr] = objs_curr[i]
+            if objects_curr[i]['area'] >= min_size_reg:
+                objects_prev[ID_curr] = objects_curr[i]
                 ID_curr += 1
 
     # if no objects in current frame, removes objects from dictionary of
     # objects in the previous frame
-    elif len(objs_curr) == 0:
-        for ID in list(objs_prev.keys()):
+    elif len(objects_curr) == 0:
+        for ID in list(objects_prev.keys()):
             # predicts the next centroid for the object based on previous velocity
-            centroid_pred = objs_archive[ID].predict_centroid(f)
+            centroid_pred = objects_archive[ID].predict_centroid(f)
             # if the most recent (possibly predicted) centroid is out of bounds,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the object is deleted from the dictionary
-            if lost_obj(centroid_pred, bw_frame, ID, objs_archive) or (not remember_objs):
-                del objs_prev[ID]
+            if lost_obj(centroid_pred, bw_frame, ID, objects_archive) or (not remember_objects):
+                del objects_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
-                objs_prev[ID]['frame'] = f
-                objs_prev[ID]['centroid'] = centroid_pred
+                objects_prev[ID]['frame'] = f
+                objects_prev[ID]['centroid'] = centroid_pred
 
     # otherwise, assigns objects in current frames to previous objects based
     # on provided distance function
     else:
         # grabs the set of object IDs from the previous frame
-        IDs = list(objs_prev.keys())
+        IDs = list(objects_prev.keys())
         # computes M x N matrix of distances (M = # objects in previous frame,
         # N = # objects in current frame)
-        d_mat = obj_d_mat(list(objs_prev.values()),
-                             objs_curr, d_fn, d_fn_kwargs)
+        d_mat = obj_d_mat(list(objects_prev.values()),
+                             objects_curr, d_fn, d_fn_kwargs)
 
         ### SOURCE: Much of the next is directly copied from [1]
         # in order to perform this matching we must (1) find the
@@ -200,7 +205,7 @@ def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
             # set its new centroid, and reset the disappeared
             # counter
             ID = IDs[row]
-            objs_prev[ID] = objs_curr[col]
+            objects_prev[ID] = objects_curr[col]
             # indicates that we have examined each of the row and
             # column indexes, respectively
             rows_used.add(row)
@@ -217,32 +222,32 @@ def assign_obj(bw_frame, f, objs_prev, objs_archive, ID_curr, fps,
             # index and save to archive
             ID = IDs[row]
             # predicts next centroid
-            centroid_pred = objs_archive[ID].predict_centroid(f)
+            centroid_pred = objects_archive[ID].predict_centroid(f)
             # deletes object if centroid is out of bounds or if prediction is
             # based on just 1 data point (so velocity is uncertain)
-            if lost_obj(centroid_pred, bw_frame, ID, objs_archive) or (not remember_objs):
-                del objs_prev[ID]
+            if lost_obj(centroid_pred, bw_frame, ID, objects_archive) or (not remember_objects):
+                del objects_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
-                objs_prev[ID]['frame'] = f
-                objs_prev[ID]['centroid'] = centroid_pred
+                objects_prev[ID]['frame'] = f
+                objects_prev[ID]['centroid'] = centroid_pred
 
 
         # registers each unregistered new input centroid as a object seen
         for col in cols_unused:
             # adds only objects above threshold
-            if objs_curr[col]['area'] >= min_size_reg:
-                objs_prev[ID_curr] = objs_curr[col]
+            if objects_curr[col]['area'] >= min_size_reg:
+                objects_prev[ID_curr] = objects_curr[col]
                 ID_curr += 1
 
     # archives objects from this frame in order of increasing ID
-    for ID in objs_prev.keys():
+    for ID in objects_prev.keys():
         # creates new ordered dictionary of objects if new object
-        if ID == len(objs_archive):
+        if ID == len(objects_archive):
             metadata = {'ID' : ID, 'fps' : fps, 'frame_dim' : frame_dim}
-            objs_archive[ID] = TrackedObject(metadata, props_raw=objs_prev[ID])
-        elif ID < len(objs_archive):
-            objs_archive[ID].add_props(objs_prev[ID])
+            objects_archive[ID] = TrackedObject(metadata, props_raw=objects_prev[ID])
+        elif ID < len(objects_archive):
+            objects_archive[ID].add_props(objects_prev[ID])
         else:
             print('In assign_obj(), IDs looped out of order while saving to archive.')
 
@@ -517,7 +522,7 @@ def get_angle_correction(im_labeled):
     return angle_correction
 
 
-def get_frame_IDs(objs_archive, start, end, every):
+def get_frame_IDs(objects_archive, start, end, every):
     """Returns list of IDs of objects in each frame"""
     # TODO: fix bug when every != 1
     # initializes dictionary of IDs for each frame
@@ -525,8 +530,8 @@ def get_frame_IDs(objs_archive, start, end, every):
     for f in range(start, end, every):
         frame_IDs[f] = []
     # loads IDs of objects found in each frame
-    for ID in objs_archive.keys():
-        obj = objs_archive[ID]
+    for ID in objects_archive.keys():
+        obj = objects_archive[ID]
         frames = obj.get_props('frame')
         for f in frames:
             frame_IDs[f] += [ID]
@@ -571,13 +576,13 @@ def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
     # removes small objects
     small_obj_rm = remove_small_objects(opened, min_size_hyst)
     # fills in holes, including those that might be cut off at border
-    highlighted_objs = frame_and_fill(small_obj_rm, width_border)
+    highlighted_objects = frame_and_fill(small_obj_rm, width_border)
 
     if ret_all_steps:
         return im_diff, thresh_bw, opened, \
-                small_obj_rm, highlighted_objs
+                small_obj_rm, highlighted_objects
     else:
-        return highlighted_objs
+        return highlighted_objects
     
     
 def highlight_obj_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
@@ -588,7 +593,7 @@ def highlight_obj_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
         'improc.highlight_obj_hyst() only accepts 2D frames.'
     assert th_lo < th_hi, \
-        'In improc.highlight_objs_hyst(), low threshold must be lower.'
+        'In improc.highlight_objects_hyst(), low threshold must be lower.'
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
@@ -626,7 +631,7 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
         'improc.highlight_obj_hyst_thresh() only accepts 2D frames.'
     assert th_lo < th_hi, \
-        'In improc.highlight_objs_hyst_thresh(), low threshold must be lower.'
+        'In improc.highlight_objects_hyst_thresh(), low threshold must be lower.'
 
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
@@ -755,7 +760,7 @@ def is_on_border(bbox, im, width_border):
         return False
 
 
-def lost_obj(centroid_pred, frame_labeled, ID, objs_archive):
+def lost_obj(centroid_pred, frame_labeled, ID, objects_archive):
     """
     Determines if object is "lost" and thus not worth tracking anymore in the
     case that the object is not detected in a frame.
@@ -777,7 +782,7 @@ def lost_obj(centroid_pred, frame_labeled, ID, objs_archive):
         pixels are located (0 if not part of a object)
     ID : int
         ID number of object assigned in assign_obj()
-    objs_archive : dictionary of TrackedObj objects
+    objects_archive : dictionary of TrackedObj objects
         Dictionary of objects registered by ID number
 
     Returns
@@ -787,7 +792,7 @@ def lost_obj(centroid_pred, frame_labeled, ID, objs_archive):
         frames.
     """
     lost = out_of_bounds(centroid_pred, frame_labeled.shape) or \
-                    (len(objs_archive[ID].get_props('frame')) < 2)
+                    (len(objects_archive[ID].get_props('frame')) < 2)
     return lost
 
 
@@ -889,7 +894,7 @@ def med_alg_thread(fvs, frame_trio):
     return (frame_trio,)
 
 
-def obj_d_mat(objs_prev, objs_curr, d_fn, d_fn_kwargs):
+def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     """
     Computes the distance matrix of distances between each pair of previous
     and current objects based on the metric function given.
@@ -897,15 +902,15 @@ def obj_d_mat(objs_prev, objs_curr, d_fn, d_fn_kwargs):
     
     Parameters
     ----------
-    objs_prev : list of dictionaries
+    objects_prev : list of dictionaries
         List of dictionaries of properties of objects in previous frame
         *Dictionaries must included 'centroid' property
-    objs_curr : list of dictionaries
-        Same as objs_prev but for objects in current frame
+    objects_curr : list of dictionaries
+        Same as objects_prev but for objects in current frame
     d_fn : function
         Function to compute distance between objects.
         *Must have arguments (obj1, obj2, **d_fn_kwargs), where obj1 and obj2
-        are dictionaries of the format in objs_prev and objs_curr
+        are dictionaries of the format in objects_prev and objects_curr
     d_fn_kwargs : dictionary
         Keyword arguments for d_fn in a dictionary of the format
         d_fn_kwargs['keyword_arg'] = value
@@ -917,15 +922,15 @@ def obj_d_mat(objs_prev, objs_curr, d_fn, d_fn_kwargs):
         and objects in the current frame (indexed by column)
     """
     # gets dimensions of distance matrix
-    M = len(objs_prev)
-    N = len(objs_curr)
+    M = len(objects_prev)
+    N = len(objects_curr)
     
     # creates blank distance matrix
     d_mat = np.zeros([M, N])
     
     # computes distance between each pair of previous and current objects
-    for i, obj_prev in enumerate(objs_prev):
-        for j, obj_curr in enumerate(objs_curr):
+    for i, obj_prev in enumerate(objects_prev):
+        for j, obj_curr in enumerate(objects_curr):
             d_mat[i,j] = d_fn(obj_prev, obj_curr, **d_fn_kwargs)
 
     return d_mat
@@ -1134,7 +1139,7 @@ def region_props_connected(bw_frame, n_frame=-1, width_border=5):
     # identifies the different objects in the frame
     num_labels, frame_labeled, stats, centroids = cv2.connectedComponentsWithStats(bw_frame)
     # creates dictionaries of properties for each object
-    objs_curr = []
+    objects_curr = []
     # records stats of each labeled object; skips 0-label (background)
     for i in range(1, num_labels):
         # creates dictionary of object properties for one frame, which
@@ -1156,9 +1161,9 @@ def region_props_connected(bw_frame, n_frame=-1, width_border=5):
         obj['on border'] = is_on_border(bbox,
               frame_labeled, width_border)
         # adds dictionary for this object to list of objects in current frame
-        objs_curr += [obj]
+        objects_curr += [obj]
 
-    return objs_curr
+    return objects_curr
 
 
 def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
@@ -1172,7 +1177,7 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
     cnts, _ = cv2.findContours(bw_frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # creates dictionaries of properties for each object
-    objs = []
+    objects = []
 
     # records stats of each labeled object; skips 0-label (background)
     for i, cnt in enumerate(cnts):
@@ -1230,9 +1235,9 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
               bw_frame, width_border)
 
         # adds dictionary for this object to list of objects in current frame
-        objs += [obj]
+        objects += [obj]
 
-    return objs
+    return objects
 
 
 def remove_small_objects(im, min_size):
@@ -1354,15 +1359,15 @@ def thresh_im(im, thresh=-1, c=5):
     return thresh_im
 
 def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assign_kwargs, ret_IDs=False):
-    objs_archive = track_obj_method(track_kwargs, highlight_kwargs, assign_kwargs)
+    objects_archive = track_obj_method(track_kwargs, highlight_kwargs, assign_kwargs)
 
     # only returns IDs for each frame if requested
-    # note: assumes objs_archive is aligned with start/end/every
+    # note: assumes objects_archive is aligned with start/end/every
     if ret_IDs:
-        frame_IDs = get_frame_IDs(objs_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
-        return objs_archive, frame_IDs
+        frame_IDs = get_frame_IDs(objects_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
+        return objects_archive, frame_IDs
     else:
-        return objs_archive
+        return objects_archive
 
 
 def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
@@ -1380,7 +1385,7 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
     
     Returns
     -------
-    objs_archive : dictionary
+    objects_archive : dictionary
         Objects tracked in the video, indexed by ID #
     """
     # counts number of frames to analyze
@@ -1421,12 +1426,12 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
     print('tracking objects...')
     start_time = time.time()
     # tracks objects
-    objs_archive = cvvidproc.TrackObjects(trackpack)
+    objects_archive = cvvidproc.TrackObjects(trackpack)
     # ends timer and prints results
     end_time = time.time()
-    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(objs_archive), end_time - start_time))
+    print('Tracked ({0:f} object(s); {1:f} s)'.format(len(objects_archive), end_time - start_time))
 
-    return objs_archive
+    return objects_archive
 
 
 def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
@@ -1444,8 +1449,8 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
     frames: https://github.com/dmlc/decord***
     """
     # initializes ordered dictionary of object data from past frames and archive of all data
-    objs_prev = OrderedDict()
-    objs_archive = {}
+    objects_prev = OrderedDict()
+    objects_archive = {}
     # initializes counter of current object label (0-indexed)
     ID_curr = 0
     # chooses end frame to be last frame if given as -1
@@ -1464,10 +1469,10 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
         val = basic.get_val_channel(frame)
 
         # highlights objects in the given frame
-        objs_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
+        objects_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds objects and assigns IDs to track them, saving to archive
-        ID_curr = assign_obj(objs_bw, f, objs_prev, objs_archive, ID_curr, **assign_kwargs)
+        ID_curr = assign_obj(objects_bw, f, objects_prev, objects_archive, ID_curr, **assign_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
@@ -1475,4 +1480,4 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
         # a5 = time.time()
         # print('5 {0:f} ms.'.format(1000*(a5-a4)))
 
-    return objs_archive
+    return objects_archive
