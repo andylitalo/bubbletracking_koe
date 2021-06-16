@@ -216,6 +216,37 @@ def fill_holes(im_bw):
     return im_filled
 
 
+def get_final_frame(vid_path, end):
+    """
+    Gets the index of the final frame requested. This is just
+    `end` unless `end`==-1, in which case it is the number of 
+    frames in the video (we do not subtract one since `end` is 
+    treated as an exclusive upper bound).
+
+    Provides flexibility by allowing user to specify final frame or request it
+    to be counted for them (by setting end = -1).
+
+    Parameters
+    ----------
+    vid_path : string
+        Path to video whose frames we want to count
+    end : int
+        Value given for the final frame to count (could be -1 for last frame)
+    
+    Returns
+    -------
+    final_frame_num : int
+        index of final frame (`= end` unless `end == -1`, in which 
+        case it's the number of frames in the video)
+    """
+    if end == -1:
+        final_frame_num = count_frames(vid_path)
+    else:
+        final_frame_num = end
+
+    return final_frame_num
+    
+
 def get_val_channel(frame, selem=None):
     """
     Returns the value channel of the given frame.
