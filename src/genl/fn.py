@@ -64,10 +64,12 @@ def get_fps(vid_path, prefix):
 
 def is_cv3():
     """
-    Checks if the version of OpenCV is cv3.
+    Checks if the version of OpenCV is 3.X.X or higher.
+    The keywords for accessing properties from an OpenCV
+    VideoCapture object are different after v2.X.X.
     """
     (major, minor, _) = cv2.__version__.split('.')
-    return int(major) == 3
+    return int(major) >= 3
 
 
 def makedirs_safe(path):

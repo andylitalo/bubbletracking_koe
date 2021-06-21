@@ -10,6 +10,7 @@ Handles input and output functions for main.py.
 # imports system libraries
 import argparse
 import shutil
+import os
 
 # imports image-processing libraries
 import cv2
@@ -101,9 +102,10 @@ def load_params(input_file):
     p['vid_name'] = params['vid_name']
 
     # if last frame given as -1, returns as final frame of video
-    p['end'] = basic.get_final_frame(cfg.input_dir + p['vid_subdir'] + \
-                                        p['vid_name'], p['end'])
-        
+    # *Note: must move up one directory to `src` for correct filepath
+    vid_path =  os.path.join(cfg.input_dir, p['vid_subdir'], p['vid_name'])
+    p['end'] = basic.get_frame_count(vid_path, p['end'])
+    
     return p
 
 def correct_thresholds(p):

@@ -65,9 +65,7 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_curr, fps,
-                   d_fn, d_fn_kwargs, width_border=2, min_size_reg=0,
-               row_lo=0, row_hi=0, remember_objects=False):
+def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, next_ID, kwargs):
     """
     Assigns objects with unique IDs to the labeled objects on the video
     frame provided. This method is used on a single frame in the context of
@@ -95,29 +93,30 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_cur
         indexed by ID number
     objects_archive : dictionary of TrackedObj objects
         Dictionary of objects from all previous frames
-    ID_curr : int
+    next_ID : int
         Next ID number to be assigned (increasing order)
-    flow_dir : numpy array of 2 floats
-        Unit vector indicating the flow direction. Should be in (row, col).
-    fps : float
-        Frames per second of video
-    pix_per_um : float
-        Conversion of pixels per micron (um)
-    width_border : int
-        Number of pixels to remove from border for image processing in
-        ee()
-    row_lo : int
-        Row of lower inner wall--currently not implemented
-    row_hi : int
-        Row of upper inner wall--currently not implemented
-    v_max : float
-        Maximum velocity expected due to Poiseuille flow [pix/s]
-    min_size_reg : int
-        Objects must have a greater area than this threshold to be registered.
+    kwargs : dictionary
+        flow_dir : numpy array of 2 floats
+            Unit vector indicating the flow direction. Should be in (row, col).
+        fps : float
+            Frames per second of video
+        pix_per_um : float
+            Conversion of pixels per micron (um)
+        width_border : int
+            Number of pixels to remove from border for image processing in
+            ee()
+        row_lo : int
+            Row of lower inner wall--currently not implemented
+        row_hi : int
+            Row of upper inner wall--currently not implemented
+        v_max : float
+            Maximum velocity expected due to Poiseuille flow [pix/s]
+        min_size_reg : int
+            Objects must have a greater area than this threshold to be registered.
 
     Returns
     -------
-    ID_curr : int
+    next_ID : int
         Updated value of next ID number to assign.
 
     References
@@ -128,6 +127,14 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_cur
     f = frames_processed
     objects_prev = objects_prev
     objects_archive = objects_archive
+    fps = kwargs['fps']
+    d_fn = kwargs['d_fn']
+    d_fn_kwargs = kwargs['d_fn_kwargs']
+    width_border = kwargs['width_border']
+    min_size_reg = kwargs['min_size_reg']
+    row_lo = kwargs['row_lo']
+    row_hi = kwargs['row_hi']
+    remember_objects = kwargs['remember_objects']
 
     # computes frame dimesions
     frame_dim = bw_frame.shape
@@ -140,8 +147,8 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_cur
         for i in range(len(objects_curr)):
             # only registers objects larger than a minimum size
             if objects_curr[i]['area'] >= min_size_reg:
-                objects_prev[ID_curr] = objects_curr[i]
-                ID_curr += 1
+                objects_prev[next_ID] = objects_curr[i]
+                next_ID += 1
 
     # if no objects in current frame, removes objects from dictionary of
     # objects in the previous frame
@@ -237,8 +244,8 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_cur
         for col in cols_unused:
             # adds only objects above threshold
             if objects_curr[col]['area'] >= min_size_reg:
-                objects_prev[ID_curr] = objects_curr[col]
-                ID_curr += 1
+                objects_prev[next_ID] = objects_curr[col]
+                next_ID += 1
 
     # archives objects from this frame in order of increasing ID
     for ID in objects_prev.keys():
@@ -251,7 +258,7 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, ID_cur
         else:
             print('In assign_obj(), IDs looped out of order while saving to archive.')
 
-    return ID_curr
+    return next_ID
 
 
 def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
@@ -499,34 +506,12 @@ def frame_and_fill(im, w=2):
     return im
 
 
-def get_angle_correction(im_labeled):
-    """
-    correction of length due to offset angle of stream
-    """
-    rows, cols = np.where(im_labeled)
-    # upper left (row, col)
-    ul = (np.min(rows[cols==np.min(cols)]), np.min(cols))
-    # upper right (row, col)
-    ur = (np.min(rows[cols==np.max(cols)]), np.max(cols))
-    # bottom left (row, col)
-    bl = (np.max(rows[cols==np.min(cols)]), np.min(cols))
-    # bottom right (row, col)
-    br = (np.max(rows[cols==np.max(cols)]), np.max(cols))
-    # angle along upper part of stream
-    th_u = np.arctan((ul[0]-ur[0])/(ul[1]-ur[1]))
-    # angle along lower part of stream
-    th_b = np.arctan((bl[0]-br[0])/(bl[1]-br[1]))
-    # compute correction by taking cosine of mean offset angle
-    angle_correction = np.cos(np.mean(np.array([th_u, th_b])))
-
-    return angle_correction
-
-
 def get_frame_IDs(objects_archive, start, end, every):
     """Returns list of IDs of objects in each frame"""
     # TODO: fix bug when every != 1
     # initializes dictionary of IDs for each frame
     frame_IDs = {}
+    print('end', end)
     for f in range(start, end, every):
         frame_IDs[f] = []
     # loads IDs of objects found in each frame
@@ -1364,7 +1349,8 @@ def track_obj(track_obj_method, track_kwargs, highlight_kwargs, assign_kwargs, r
     # only returns IDs for each frame if requested
     # note: assumes objects_archive is aligned with start/end/every
     if ret_IDs:
-        frame_IDs = get_frame_IDs(objects_archive, track_kwargs['start'], track_kwargs['end'], track_kwargs['every'])
+        end = basic.get_frame_count(track_kwargs['vid_path'], track_kwargs['end'])
+        frame_IDs = get_frame_IDs(objects_archive, track_kwargs['start'], end, track_kwargs['every'])
         return objects_archive, frame_IDs
     else:
         return objects_archive
@@ -1389,7 +1375,7 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
         Objects tracked in the video, indexed by ID #
     """
     # counts number of frames to analyze
-    end = basic.get_final_frame(track_kwargs['vid_path'], track_kwargs['end'])
+    end = basic.get_frame_count(track_kwargs['vid_path'], track_kwargs['end'])
     n_frames = int( (end-track_kwargs['start'])/track_kwargs['every'] )
 
     # collects parameters for highlighting objects package (CvVidProc param)
@@ -1452,9 +1438,9 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
     objects_prev = OrderedDict()
     objects_archive = {}
     # initializes counter of current object label (0-indexed)
-    ID_curr = 0
+    next_ID = 0
     # chooses end frame to be last frame if given as -1
-    end = basic.get_final_frame(vid_path, end)
+    end = basic.get_frame_count(vid_path, end)
     
     # loops through frames of video
     for f in range(start, end, every):
@@ -1472,7 +1458,7 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
         objects_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds objects and assigns IDs to track them, saving to archive
-        ID_curr = assign_obj(objects_bw, f, objects_prev, objects_archive, ID_curr, **assign_kwargs)
+        next_ID = assign_obj(objects_bw, f, objects_prev, objects_archive, next_ID, **assign_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \

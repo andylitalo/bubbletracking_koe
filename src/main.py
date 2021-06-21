@@ -3,6 +3,8 @@ track_objs.py highlights, labels, and analyzes objects in videos
 
 @author Andy Ylitalo
 @date October 19, 2020
+
+@bug June 15, 2021: GStreamer fails when trying to use "VideoCapture" feature of cv2
 """
 
 
@@ -157,7 +159,7 @@ def main():
         'min_size_reg' : p['min_size_reg'],
         'row_lo' : row_lo,
         'row_hi' : row_hi,
-        'remember_objs' : False # TODO -- make this a parameter that can be changed by user
+        'remember_objects' : False # TODO -- make this a parameter that can be changed by user
     }               
 
     ### OBJECT TRACKING ###
@@ -192,7 +194,7 @@ def main():
 
     # stores data
     data = {}
-    data['objs'] = objs
+    data['objects'] = objs
     data['frame IDs'] = frame_IDs
     data['metadata'] = metadata
 

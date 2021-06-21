@@ -108,10 +108,11 @@ def count_frames(path, override=False):
     else:
         try:
             if fn.is_cv3():
-                n_frames = int(int(video.get(cv2.CAP_PROP_FRAME_COUNT)))
+                n_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             else:
                 n_frames = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
         except:
+            print('OpenCV cannot access frame count--counting frames manually')
             n_frames = count_frames_manual(video)
 
     # release the video file pointer
@@ -216,7 +217,7 @@ def fill_holes(im_bw):
     return im_filled
 
 
-def get_final_frame(vid_path, end):
+def get_frame_count(vid_path, end):
     """
     Gets the index of the final frame requested. This is just
     `end` unless `end`==-1, in which case it is the number of 
