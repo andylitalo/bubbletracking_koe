@@ -35,5 +35,5 @@ vid_subdir = sd301_co2/20210207_88bar/ # <polyol>_<gas>/yyyymmdd_<pressure>bar/
 # 3: outer stream flow rate (uL/min)
 # 4: distance down stream (mm)
 # 5: magnification of objective lens (x)
-# 6: number of video (0-indexed)
+# 6: number of video (0-indexed, no leading zeros)
 vid_name = sd301_co2_15000_001_100_0335_79_04_10.mp4 # include ext
