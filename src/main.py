@@ -122,7 +122,7 @@ def main():
     # TODO--how to let user customize list of arguments?
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
-        'assign_obj_method' : improc.assign_obj,
+        'assign_objects_method' : improc.assign_objects,
         'highlight_method' : p['highlight_method'], # only used for pure-Python analysis
         'print_freq' : print_freq,
         'start' : p['start'],
@@ -159,7 +159,8 @@ def main():
         'min_size_reg' : p['min_size_reg'],
         'row_lo' : row_lo,
         'row_hi' : row_hi,
-        'remember_objects' : False # TODO -- make this a parameter that can be changed by user
+        'remember_objects' : False, # TODO -- make this a parameter that can be changed by user
+        'object_kwargs' : {'flow_dir' : flow_dir, 'pix_per_um' : pix_per_um},
     }               
 
     ### OBJECT TRACKING ###
@@ -180,8 +181,6 @@ def main():
         obj = objs[ID]
         # computes average speed [m/s]
         obj.proc_props()
-        # compares average speed to cutoff [m/s]
-        obj.classify(v_inner)
 
     ########################## 4) SAVE RESULTS #################################
     # stores metadata (I will not store video parameters or parameters from the

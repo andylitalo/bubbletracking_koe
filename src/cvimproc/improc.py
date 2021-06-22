@@ -65,7 +65,8 @@ def average_rgb(im):
     return res.astype('uint8')
 
 
-def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, next_ID, kwargs):
+def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive, 
+                next_ID, kwargs, ObjectClass=TrackedObject, object_kwargs={}):
     """
     Assigns objects with unique IDs to the labeled objects on the video
     frame provided. This method is used on a single frame in the context of
@@ -113,6 +114,9 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, next_I
             Maximum velocity expected due to Poiseuille flow [pix/s]
         min_size_reg : int
             Objects must have a greater area than this threshold to be registered.
+        object_kwargs : dictionary
+            Keyword arguments needed for the instantiation of an object from 
+            ObjectClass
 
     Returns
     -------
@@ -251,12 +255,13 @@ def assign_obj(bw_frame, frames_processed, objects_prev, objects_archive, next_I
     for ID in objects_prev.keys():
         # creates new ordered dictionary of objects if new object
         if ID == len(objects_archive):
-            metadata = {'ID' : ID, 'fps' : fps, 'frame_dim' : frame_dim}
-            objects_archive[ID] = TrackedObject(metadata, props_raw=objects_prev[ID])
+            objects_archive[ID] = ObjectClass(ID, fps, frame_dim, 
+                                                props_raw=objects_prev[ID], 
+                                                **object_kwargs)
         elif ID < len(objects_archive):
             objects_archive[ID].add_props(objects_prev[ID])
         else:
-            print('In assign_obj(), IDs looped out of order while saving to archive.')
+            print('In assign_objects(), IDs looped out of order while saving to archive.')
 
     return next_ID
 
@@ -511,7 +516,6 @@ def get_frame_IDs(objects_archive, start, end, every):
     # TODO: fix bug when every != 1
     # initializes dictionary of IDs for each frame
     frame_IDs = {}
-    print('end', end)
     for f in range(start, end, every):
         frame_IDs[f] = []
     # loads IDs of objects found in each frame
@@ -766,7 +770,7 @@ def lost_obj(centroid_pred, frame_labeled, ID, objects_archive):
         Frame whose pixel values are the ID numbers of the objects where the
         pixels are located (0 if not part of a object)
     ID : int
-        ID number of object assigned in assign_obj()
+        ID number of object assigned in assign_objects()
     objects_archive : dictionary of TrackedObj objects
         Dictionary of objects registered by ID number
 
@@ -883,7 +887,7 @@ def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     """
     Computes the distance matrix of distances between each pair of previous
     and current objects based on the metric function given.
-    Used in `assign_obj`.
+    Used in `assign_objects`.
     
     Parameters
     ----------
@@ -1392,8 +1396,8 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
     # collects parameters for assigning objects package (CvVidProc param)
     # note that assigning objects is done purely in Python
     assign_objects_pack = cvvidproc.AssignObjectsPack(
-        track_kwargs['assign_obj_method'],     # pass in function name for assignment as functor (not string)
-        assign_kwargs)  # arguments for assign_obj_method
+        track_kwargs['assign_objects_method'],     # pass in function name for assignment as functor (not string)
+        assign_kwargs)  # arguments for assign_objects_method
 
     # collects parameters for video management package (CvVidProc param)
     # fields not defined will be defaulted
@@ -1458,7 +1462,7 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
         objects_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds objects and assigns IDs to track them, saving to archive
-        next_ID = assign_obj(objects_bw, f, objects_prev, objects_archive, next_ID, **assign_kwargs)
+        next_ID = assign_objects(objects_bw, f, objects_prev, objects_archive, next_ID, **assign_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
