@@ -28,7 +28,7 @@ from genl.conversions import *
 import cvimproc.pltim as pltim
 
 # imports custom classes (with reload clauses)
-from classes.classes import TrackedObject, FileVideoStream
+from classes.classes import TrackedObject
 
 # import custom opencv video processing methods
 import cvvidproc
@@ -347,27 +347,29 @@ def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
     return bkgd_mean
 
     
-def compute_bkgd_med(vid_path, num_frames=100):
-    """
-    Same as compute_bkgd_med_thread() but does not use threading. More reliable
-    and predictable, but slower.
-    """
-    cap = cv2.VideoCapture(vid_path)
-    ret, frame = cap.read()
-    if not ret:
-        return None
-    # computes the median
-    frame_trio = proc_frames(cap, med_alg, ([frame],),
-                                    num_frames=num_frames)
-    print('finished')
-    # the median value of pixels is the first object in the frame trio list
-    bkgd_med = frame_trio[0][0].astype('uint8')
+# def compute_bkgd_med(vid_path, num_frames=100):
+#     """
+#     Same as compute_bkgd_med_thread() but does not use threading. More reliable
+#     and predictable, but slower.
+#
+#     TODO: missing med_alg definition that accurately computes median
+#     """
+#     cap = cv2.VideoCapture(vid_path)
+#     ret, frame = cap.read()
+#     if not ret:
+#         return None
+#     # computes the median
+#     frame_trio = proc_frames(cap, med_alg, ([frame],),
+#                                     num_frames=num_frames)
+#     print('finished')
+#     # the median value of pixels is the first object in the frame trio list
+#     bkgd_med = frame_trio[0][0].astype('uint8')
 
-    # takes value channel if color image provided
-    if len(bkgd_med.shape) == 3:
-        bkgd_med = basic.get_val_channel(bkgd_med)
+#     # takes value channel if color image provided
+#     if len(bkgd_med.shape) == 3:
+#         bkgd_med = basic.get_val_channel(bkgd_med)
 
-    return bkgd_med
+#     return bkgd_med
 
 def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
 			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
@@ -820,68 +822,6 @@ def measure_labeled_im_width(im_labeled, um_per_pix):
 
     return mean, std
 
-    
-def med_alg(cap, frame_trio):
-    """
-    Same as med_alg_thread but using VideoCapture obj instead of thread.
-    Slower, but more reliable and predictable operation.
-    OBSOLETE: doesn't work in some edge cases!!! (thanks koe for the catch!)
-    """
-    # reads frame from file video stream
-    ret, frame = cap.read()
-    frame = frame.astype(float)
-    # adds frame to list if three frames not collected yet
-    if len(frame_trio) < 3:
-        frame_trio += [frame]
-    # if three frames collected, takes their median and sets that as the new frame in the last
-    else:
-        stacked_arr = np.stack(tuple(frame_trio), axis=0)
-        bkgd_med = np.median(stacked_arr, axis=0)
-        frame_trio = [bkgd_med]
-
-    return ret, (frame_trio,)
-
-
-def med_alg_thread(fvs, frame_trio):
-    """
-    Performs repeated step for algorithm to compute the pixel-wise median of
-    the frames of a video. It loads two frames along with the current median
-    into a "trio" and then computes the pixel-wise median of those three
-    frames. This can be shown to give the overall pixel-wise median of a
-    series of frames without requiring all frames to be stored in memory
-    simultaneously.
-
-    Parameters
-    ----------
-    fvs : FileVideoStream object
-        File video stream that manages threading used to load and queue frames.
-        See the FileVideoStream class in classes.py for definition and methods.
-        Construct and initiate: FileVideoStream(<str of vid filepath>).start()
-    frame_trio : list
-        List of numpy arrays of frames. The first element is always the median.
-        The list may have up to three elements, the second and third being
-        frames in the queue for computing the median.
-
-    Returns
-    -------
-    frame_trio : list
-        Same as input frame_trio, but either with the loaded frame appended or
-        the median taken and only the median frame remaining.
-
-    """
-    # reads frame from file video stream
-    frame = fvs.read().astype(float)
-    # adds frame to list if three frames not collected yet
-    if len(frame_trio) < 3:
-        frame_trio += [frame]
-    # if three frames collected, takes their median and sets that as the new frame in the last
-    else:
-        stacked_arr = np.stack(tuple(frame_trio), axis=0)
-        bkgd_med = np.median(stacked_arr, axis=0)
-        frame_trio = [bkgd_med]
-
-    return (frame_trio,)
-
 
 def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     """
@@ -1019,59 +959,6 @@ def proc_frames(cap, alg, args, num_frames=100, report_freq=10):
 
     # when everything is done, releases the capture
     cap.release()
-
-    return result
-
-
-def proc_frames_thread(fvs, alg, args, num_frames=100):
-    """
-    Processes frames using threading for efficiency. Applies given algorithm
-    upon loading each frame.
-
-    NOTE: the FileVideoStream object fvs must be stopped before running this.
-    Otherwise it will not be able to start.
-
-    Parameters
-    ----------
-    fvs : FileVideoStream object
-        File video stream that manages threading used to load and queue frames.
-        See the FileVideoStream class in classes.py for definition and methods.
-        Construct and initiate: FileVideoStream(<str of vid filepath>).start()
-    alg : function
-        Algorithmic step to apply to each new frame. Also takes in args. This
-        function must return an array of floats. It will not load if it is int.
-    args : tuple
-        Additional arguments besides the FileVideoStream required by alg.
-    num_frames : int, optional
-        Number of frames to process. The default is 100.
-
-    Returns
-    -------
-    result : object
-        Output of repeated application of the algorithmic step alg to each
-        frame in the video. Type is determined by output of alg.
-
-    """
-    print('started proc_frames_thread')
-    # initializes result by applying algorithm to first frame
-    result = alg(fvs, *args)
-    # initializes counter at 3 because the next computation will be the 3rd (args is first, result is second)
-    ctr = 3
-    # loops through frames performing algorithm to process them
-    while fvs.more():
-
-        # computes algorithmic step
-        result = alg(fvs, *result)
-
-        # reports counter and progress
-        ctr += 1
-        if ctr > num_frames:
-            break
-        if (ctr % 10) == 0:
-            print('Completed {0:d} frames of {1:d}.'.format(ctr, num_frames))
-
-    # stops file video stream
-    fvs.stop()
 
     return result
 
