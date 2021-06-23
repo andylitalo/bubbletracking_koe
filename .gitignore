@@ -2,6 +2,7 @@
 src/libs/
 input/test/video_sources/
 output/
+demos/
 *.mp4
 *.pyc
 *.pkl
