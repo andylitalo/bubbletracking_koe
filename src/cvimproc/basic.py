@@ -260,6 +260,11 @@ def get_val_channel(frame, selem=None):
     return val
 
 
+def is_color(im):
+    """Returns True if the image is a color image (3 channels) and false if not."""
+    return len(im.shape) == 3
+
+    
 def load_frame(vid_path, num):
     """Loads frame from video using OpenCV and prepares for display in Bokeh."""
     cap = cv2.VideoCapture(vid_path)
@@ -268,13 +273,37 @@ def load_frame(vid_path, num):
     return frame, cap
 
 
+def prep_for_mpl(im):
+    """
+    Prepares an image for display in matplotlib's imshow() method.
+
+    Parameters
+    ----------
+    im : (M x N x 3) or (M x N) numpy array of uint8 or float
+        Image to convert.
+
+    Returns
+    -------
+    im_p : same dims as im, numpy array of uint8
+        Image prepared for matplotlib's imshow()
+
+    """
+    if is_color(im):
+        im_p = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    else:
+        im_p = np.copy(im)
+    im_p = 255.0 / np.max(im_p) * im_p
+    im_p = im_p.astype('uint8')
+
+    return im_p
+
+
 def read_frame(cap, num):
     """Reads frame given the video capture object."""
     cap.set(cv2.CAP_PROP_POS_FRAMES, num)
     grabbed, frame = cap.read()
 
     return frame
-
 
 
 def rotate_image(im,angle,center=[],crop=False,size=None):
@@ -317,6 +346,32 @@ def rotate_image(im,angle,center=[],crop=False,size=None):
         im = im[min(x):max(x),min(y):max(y)]
 
     return im
+
+
+def scale_by_brightfield(im, bf):
+    """
+    scale pixels by value in brightfield
+
+    Parameters:
+        im : array of floats or ints
+            Image to scale
+        bf : array of floats or ints
+            Brightfield image for scaling given image
+
+    Returns:
+        im_scaled : array of uint8
+            Image scaled by brightfield image
+    """
+    # convert to intensity map scaled to 1.0
+    bf_1 = bf.astype(float) / 255.0
+    # scale by bright field
+    im_scaled = np.divide(im,bf_1)
+    # rescale result to have a max pixel value of 255
+    im_scaled *= 255.0/np.max(im_scaled)
+    # change type to uint8
+    im_scaled = im_scaled.astype('uint8')
+
+    return im_scaled
 
 
 def scale_image(im,scale):

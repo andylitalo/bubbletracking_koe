@@ -5,7 +5,7 @@ the mean and standard deviation of the signed difference from the
 background, then uses that information to classify images based on 
 mean, standard deviation, and minimum value of the signed difference.
 
-Goal: for the classifications above to correspond to bubble detection.
+Goal: for the classifications above to correspond to object detection.
 
 @author Andy Ylitalo
 @date May 5, 2021
@@ -53,7 +53,7 @@ hist_max = 50
 # thresholds
 th_mean = 0.25
 th_stdev = 3.2
-# bubbles must have a min val < this many stdevs from mean min val
+# objects must have a min val < this many stdevs from mean min val
 n_sigma = 5
 
 ### DERIVED PARAMETERS ###
@@ -64,7 +64,7 @@ def parse_args():
     """Parses arguments for script."""
     ap = argparse.ArgumentParser(
         description='Plots histograms and saves image residuals' + \
-                    ' where bubbles are detected.')
+                    ' where objects are detected.')
     ap.add_argument('-f', '--framerange', nargs=2, default=(0,0),
                     metavar=('frame_start, frame_end'),
                     help='starting and ending frames to save')
@@ -234,7 +234,7 @@ def main():
 
     #th_min = -n_sigma*sigma
     th_min = mu_min - n_sigma*sigma_min # removes mean since we want to compare to median (= 0)
-    # uses Otsu's method to identify threshold b/w min val for bubble and for no bubble
+    # uses Otsu's method to identify threshold b/w min val for object and for no object
     th_min_otsu = skimage.filters.threshold_otsu(min_val_arr)
     # clusters minima into 2 -- use boundary as threshold?
     inds_clusters = KMeans(n_clusters=2, random_state=1).fit_predict(min_val_arr.reshape(-1, 1))
@@ -297,7 +297,7 @@ def main():
             sub_dirs += ['below_min']
 
         # if both below min and above stdev, save in intersxn dir
-        # this combo seems like a good test of bubbles
+        # this combo seems like a good test of objects
     #    if 'below_min' in sub_dirs and 'above_stdev' in sub_dirs:
     #        sub_dirs += ['stdev_min']
 
@@ -333,11 +333,11 @@ if __name__ == '__main__':
     main()
 
 """  
-    # highlight bubbles and extract images at each step
-    proc_ims = improc.highlight_bubble_hyst_thresh(
+    # highlight objects and extract images at each step
+    proc_ims = improc.highlight_object_hyst_thresh(
                             frame, bkgd, th, th_lo, th_hi,
                             min_size_hyst, min_size_th, width_border, 
                             selem, mask_data, ret_all_steps=True)
     
-    im_diff, thresh_bw_1, bubble_1, thresh_bw_2, bubble_2, bubble = proc_ims
+    im_diff, thresh_bw_1, object_1, thresh_bw_2, object_2, object = proc_ims
 """

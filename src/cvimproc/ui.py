@@ -18,7 +18,7 @@ from tkinter import messagebox
 import genl.pltg as pltg
 import genl.geo as geo
 import cvimproc.mask as mask
-import cvimproc.improc as improc
+import cvimproc.basic as basic
 
 
 
@@ -56,12 +56,12 @@ def click_flow(im, mask_path, region='ROI', save=True, check=False):
                                                 save=save)
     verts = mask_data['vertices']
     # computes coordinates of flow vector from first two clicks
-    dx = verts[1][0] - verts[0][0]
-    dy = verts[1][1] - verts[0][1]
+    dx = verts[1][1] - verts[0][1]
+    dy = verts[1][0] - verts[0][0]
     # normalizes flow direction
     d = np.sqrt(dx**2 + dy**2)
-    # returns flow direction in (x, y) coordinates
-    flow_dir = np.array([dx / d, dy / d])
+    # returns flow direction in (row, column) coordinates
+    flow_dir = np.array([dy / d, dx / d])
 
     return flow_dir, mask_data
 
@@ -85,20 +85,21 @@ def click_flow_dir(im, msg='', return_origin=False):
         Returned if return_origin is True. Gives (x,y) coords. of first click.
     """
     # formats image for use in matplotlib's imshow
-    im_p = improc.prep_for_mpl(im)
+    im_p = basic.prep_for_mpl(im)
     # collects 2 pts from clicks defining the flow direction along inner wall
     if msg == '':
         msg = 'right-click 2 pts left-to-right along inner wall, then left-click'
-    xy_vals = define_outer_edge(im_p, 'polygon', message=msg)
-    # computes coordinates of vector from clicks
-    dx = xy_vals[1][0]-xy_vals[0][0]
-    dy = xy_vals[1][1]-xy_vals[0][1]
+    pts = define_outer_edge(im_p, 'polygon', message=msg)
+    # computes coordinates of vector from clicks; points are (row, column)
+    dx = pts[1][1] - pts[0][1]
+    dy = pts[1][0] - pts[0][0]
     # normalizes flow direction
     d = np.sqrt(dx**2 + dy**2)
-    flow_dir = np.array([dx / d, dy / d])
+    # gives flow direction in (row, column) format
+    flow_dir = np.array([dy / d, dx / d])
 
     if return_origin:
-        origin = xy_vals[0]
+        origin = pts[0]
         return flow_dir, origin
     else:
         return flow_dir
@@ -112,10 +113,10 @@ def click_for_length(im, just_height=False, msg='', return_origin=False):
     # collects 2 pts from clicks defining the flow direction along inner wall
     if msg == '':
         msg = 'right-click 2 pts spanning desired length, then left-click'
-    xy_vals = define_outer_edge(im_p, 'polygon', message=msg)
-    # computes coordinates of vector from clicks
-    dx = xy_vals[1][0]-xy_vals[0][0]
-    dy = xy_vals[1][1]-xy_vals[0][1]
+    pt1, pt2 = define_outer_edge(im_p, 'polygon', message=msg)
+    # computes coordinates of vector from clicks; points are (row, column)
+    dx = pt2[1] - pt1[1]
+    dy = pt2[0] - pt1[0]
     if just_height:
         d = dy
     else:
@@ -123,60 +124,6 @@ def click_for_length(im, just_height=False, msg='', return_origin=False):
         d = np.sqrt(dx**2 + dy**2)
 
     return d
-
-
-def click_for_next(ax, msg='Center-click for next image.'):
-    """
-    Allows code to continue only after user clicks.
-    """
-    ax.set_title(msg)
-    # loops through clicks until center-click
-    while True:
-        pp = get_pts(1)
-        if len(pp) < 1:
-            break
-
-
-def click_sheath_flow(im, mask_path, check=False):
-    """
-    User clicks mask for flow and mask for inner stream. The method then uses
-    these to determine the flow axis and parameters for estimating velocity
-    field.
-    Parameters
-    ----------
-    im : (M x N x 3) or (M x N) numpy array of floats or uint8s
-        Image that will be shown for the user to click the flow direction
-    mask_path : string
-        Filepath to destination of desired mask file.
-    check : bool, optional
-        If True and a file exists under mask_path, asks user to confirm
-        quality of existing mask before proceeding. Otherwise, existing mask is
-        always used. Default False.
-    Returns
-    -------
-    flow_dir : 2-tuple of floats
-        Unit vector of direction of flow. (row, col) if rc is True, o/w (x,y).
-    mask_data : dictionary
-        Contains data (mask and vertices) for full mask and inner stream mask
-    """
-    # asks user to click outer stream; ignores flow direction in case inner
-    # walls of capillary are not visible in the image
-    _, mask_data = click_flow(im, mask_path, save=False, check=check)
-    # asks user to click inner stream
-    flow_dir_xy, inner_mask_data = click_flow(im, mask_path,
-                                region='inner stream', save=False, check=check)
-    # flips flow direction to be row col
-    flow_dir = flow_dir_xy[::-1]
-    # extracts vertices of inner stream for use in defining inner stream width
-    verts_inner = inner_mask_data['vertices']
-    # stores inner stream properties in mask data dictionary
-    mask_data['flow_dir'] = flow_dir
-    mask_data['verts_inner'] = verts_inner
-    # saves mask data
-    with open(mask_path, 'wb') as f:
-        pkl.dump(mask_data, f)
-
-    return flow_dir, mask_data
 
 
 def click_z_origin(im):
@@ -213,30 +160,63 @@ def click_z_origin(im):
     return z, row_lo, row_hi
 
 
-def define_outer_edge(image,shapeType,message=''):
+def define_outer_edge(image, shape_type, message=''):
     """
     Displays image for user to outline the edge of a shape. Tracks clicks as
-    points on the image. If shapeType is "polygon", the points will be
-    connected by lines to show the polygon shape. If the shapeType is "circle",
+    points on the image. If shape type is "polygon", the points will be
+    connected by lines to show the polygon shape. If the shape type is "circle",
     the points will be fit to a circle after 4 points have been selected,
     after which point the user can continue to click more points to improve
     the fit.
-    Possible "shapeTypes":
-    'polygon': Returns array of tuples of xy-values of vertices
-    'circle': Returns radius and center of circle
-    'ellipse': Returns radius1, radius2, center, and angle of rotation
-    'rectangle': Returns array of tuples of xy-values of 4 vertices given two
-                opposite corners
+
+    Uses x and y coordinates when plotting.
+
+    Parameters
+    ----------
+    image : (M x N) numpy array of uint8s
+        Image on which to define the desired shape
+    shape_type : string
+        Describes the type of shape to interpret the clicked points as. 
+        Options include:
+            'polygon': Returns array of tuples of (row,col)-values of vertices
+            'circle': Returns radius and center (row,col) of circle
+            'ellipse': Returns radius1, radius2, center (row,col), and angle of rotation
+            'rectangle': Returns array of tuples of (row,col)-values of 4 vertices given two
+                        opposite corners
+    message : string
+        message to display for user while clicking
+
+    Returns
+    -------
+    if shape_type == 'circle':
+        R : float
+            radius of circle
+        center : 2-tuple of ints
+            (row, column) of center of circle
+    if shape_type == 'ellipse':
+        R1, R2 : float
+            major and minor axes of ellipse
+        center : 2-tuple of ints
+            (row, column) of center of ellipse
+        theta : float
+            angle of orientation of ellipse (radians)
+    if shape_type == 'polygon':
+        pts : list of 2-tuples of ints
+            (row, column) of points defining boundary of polygon
+    if shape_type == 'rectangle':
+        vertices : list of 4 2-tuples of ints
+            four vertices of rectangle, starting with upper left and 
+            proceeding clockwise
     """
     # parse input for circle
-    if shapeType == 'circle':
+    if shape_type == 'circle':
         guess = np.shape(image)
-        guess = (guess[1]/2,guess[0]/2)
+        guess = (guess[1]/2, guess[0]/2)
     # define dictionary of shapes --> shape adjectives
-    shapeAdjDict = {'circle':'Circular','ellipse':'Ellipsular',
-    'polygon':'Polygonal','rectangle':'Rectangular'}
-    if shapeType in shapeAdjDict:
-        shapeAdj = shapeAdjDict[shapeType]
+    shape_adjectives = {'circle' : 'Circular', 'ellipse' : 'Ellipsular',
+    'polygon' : 'Polygonal', 'rectangle' : 'Rectangular'}
+    if shape_type in shape_adjectives:
+        shape_adjective = shape_adjectives[shape_type]
     else:
         print("Please enter a valid shape type (\"circle\",\"ellipse\"" + \
         "\"polygon\", or \"rectangle\").")
@@ -244,8 +224,8 @@ def define_outer_edge(image,shapeType,message=''):
 
     # Initialize point lists and show image
     x = []; y = []
-    figName = 'Define %s Edge - Center click when satisfied' %shapeAdj
-    plt.figure(figName)
+    fig_name = 'Define {0:s} Edge - Center click when satisfied'.format(shape_adjective)
+    plt.figure(fig_name)
     plt.rcParams.update({'figure.autolayout': True})
     plt.set_cmap('gray')
     plt.imshow(image)
@@ -269,95 +249,54 @@ def define_outer_edge(image,shapeType,message=''):
         plt.axis(lims)
         # Add the new point to the list of points and plot them
         x += [pp[0]]; y += [pp[1]]
-        plt.plot(x,y,'r.',alpha=0.5)
+        plt.plot(x, y, 'r.', alpha=0.5)
         plt.draw()
         # Perform fitting and drawing of fitted shape
-        if shapeType == 'circle':
+        if shape_type == 'circle':
             if len(x) > 2:
                 xp = np.array(x)
                 yp = np.array(y)
-                R,center,temp =  geo.fit_circle(xp,yp,guess)
+                R, center, temp =  geo.fit_circle(yp, xp, guess)
                 guess = center
-                X,Y = geo.generate_circle(R,center)
-                plt.plot(X,Y,'y-',alpha=0.5)
-                plt.plot(center[0],center[1],'yx',alpha=0.5)
+                rows, cols = geo.generate_circle(R, center)
+                plt.plot(cols, rows, 'y-', alpha=0.5)
+                plt.plot(center[1], center[0], 'yx', alpha=0.5)
                 plt.draw()
-        elif shapeType == 'ellipse':
+        elif shape_type == 'ellipse':
             if len(x) > 3:
                 xp = np.array(x)
                 yp = np.array(y)
-                R1,R2,center,theta =  geo.fit_ellipse(xp,yp)
-                X,Y = geo.generate_ellipse(R1,R2,center,theta)
-                plt.plot(X,Y,'y-',alpha=0.5)
-                plt.plot(center[0],center[1],'yx',alpha=0.5)
+                R1, R2, center, theta =  geo.fit_ellipse(yp, xp)
+                rows, cols = geo.generate_ellipse(R1, R2, center, theta)
+                plt.plot(cols, rows, 'y-', alpha=0.5)
+                plt.plot(center[1], center[0], 'yx', alpha=0.5)
                 plt.draw()
-        elif shapeType == 'polygon':
-            plt.plot(x,y,'y-',alpha=0.5)
+        elif shape_type == 'polygon':
+            plt.plot(x, y, 'y-', alpha=0.5)
             plt.draw()
-        elif shapeType == 'rectangle':
+        elif shape_type == 'rectangle':
             # need 2 points to define rectangle
             if len(x) == 2:
                 # generate points defining rectangle containing xp,yp as opposite vertices
-                X,Y = geo.generate_rectangle(x, y)
+                rows, cols = geo.generate_rectangle(x, y)
                 # plot on figure
-                plt.plot(X,Y,'y-', alpha=0.5)
+                plt.plot(cols, rows, 'y-', alpha=0.5)
                 plt.draw()
-
-
-    plt.close()
-    if shapeType == "circle":
-        return R,center
-    elif shapeType == 'ellipse':
-        return R1,R2,center,theta
-    elif shapeType == "polygon":
-        xyVals = [(x[i],y[i]) for i in range(len(x))]
-        return xyVals
-    elif shapeType == 'rectangle':
-        # returns (x,y) values of 4 vertices starting with upper left in clockwise order
-        xyVals = [(np.min(X),np.min(Y)), (np.max(X),np.min(Y)),
-                  (np.max(X),np.max(Y)), (np.min(X),np.max(Y))]
-        return xyVals
-
-
-def get_rect_mask_data(im, maskFile, check=False, yes=6,
-                        msg="Click opposing corners of rectangle ' + \
-                        'outlining desired region."):
-    """
-    Shows user masks overlayed on given image and asks through a dialog box
-    if they are acceptable. Returns True for 'yes' and False for 'no'.
-    """
-    try:
-        with open(maskFile, 'rb') as f:
-            maskData = pkl.load(f)
-    except:
-        print('Mask file not found, please create it now.')
-        # asks user to click vertices
-        vertices = define_outer_edge(im, 'rectangle', message=msg)
-        maskData = mask.create_rect_mask_data(im, vertices, mask_file)
-
-    while check:
-        plt.figure('Evaluate accuracy of predrawn masks for your video')
-        maskedImage = mask.mask_image(im,maskData['mask'])
-        temp = np.dstack((maskedImage,im,im))
-        plt.imshow(temp)
-
-        response = ctypes.windll.user32.MessageBoxA(0, 'Do you wish to keep' + \
-                            ' the current mask?','User Input Required', 4)
-
-        if response == yes: # 6 means yes
-            plt.close()
-            return maskData
-
-        else: # 7 means no
-            print('Existing mask rejected, please create new one now.')
-            msg = "Click opposing corners of rectangle outlining desired region."
-            # asks user to click vertices
-            vertices = define_outer_edge(im, 'rectangle', message=msg)
-            maskData = mask.create_rect_mask_data(im, vertices, mask_file)
-
     plt.close()
 
-    return maskData
+    # collects variables to return for each case
+    if shape_type == "circle":
+        return R, center
+    elif shape_type == 'ellipse':
+        return R1, R2, center, theta
+    elif shape_type == "polygon":
+        pts = [(row, col) for row, col in zip(y, x)]
+        return pts
+    elif shape_type == 'rectangle':
+        # returns (row, col)  of 4 vertices starting with upper left in clockwise order
+        vertices = [(np.min(rows), np.min(cols)), (np.min(rows), np.max(cols)),
+                  (np.max(rows), np.max(cols)), (np.max(rows), np.min(cols))]
+        return vertices
 
 
 def get_polygonal_mask_data(im, mask_file, check=False, save=True,
@@ -407,7 +346,7 @@ def get_mask_data(maskFile,v,hMatrix=None,check=False):
     if they are acceptable. Returns True for 'yes' and False for 'no'.
     """
     # Parse input parameters
-    image = basic.extract_frame(v,1,hMatrix=hMatrix)
+    image = basic.extract_frame(v, 1, hMatrix=hMatrix)
     try:
         with open(maskFile) as f:
             maskData = pkl.load(f)
@@ -421,7 +360,7 @@ def get_mask_data(maskFile,v,hMatrix=None,check=False):
         temp = np.dstack((maskedImage,image,image))
         plt.imshow(temp)
         center = maskData['diskCenter']
-        plt.plot(center[0],center[1],'bx')
+        plt.plot(center[1], center[0], 'bx')
         plt.axis('image')
 
         response = ctypes.windll.user32.MessageBoxA(0, 'Do you wish to keep' + \
@@ -460,61 +399,3 @@ def get_pts(num_pts=1,im=None):
     pts = plt.ginput(n=num_pts,mouse_add=3, mouse_pop=2, mouse_stop=1,
                     timeout=0)
     return pts
-
-
-def get_pix_per_um(im, l_um):
-    """
-    Given an image, the user clicks points defining a line segment of a known
-    length. The length of that line segment is calculated and an approximate
-    conversion of pixels to actual distance is obtained.
-    Parameters:
-        im : 2D or 3D array
-            Image with a known distance to be measured in pixels
-        l_um : float
-            Length of a known distance in the given image [um]
-    Returns:
-        pix_per_um : float
-            Number of pixels per um in the image.
-    """
-    # Format window for image
-    fig_name = 'Click line segment across inner diameter of capillary'
-    msg = 'Right-click the endpoints of a line segment perpendicular ' +\
-    'to the capillary spanning its inner diameter.'
-    plt.figure(fig_name)
-    plt.rcParams.update({'figure.autolayout': True})
-    plt.set_cmap('gray')
-    plt.imshow(im)
-    plt.axis('image')
-    plt.axis('off')
-    plt.title(msg)
-    # Initialize list to store clicked points
-    pts = []
-    while True:
-        clicked_pts = get_pts(num_pts=1, im=im)
-        lims = plt.axis()
-        if len(clicked_pts) < 1:
-            break
-        else:
-            # add points to list
-            pts += clicked_pts[0]
-        # Reset the plot
-        plt.cla()
-        plot.no_ticks(im)
-        plt.title(msg)
-        plt.axis(lims)
-        # Plot new points
-        plt.plot(clicked_pts[0], clicked_pts[1], 'r.', alpha=0.5)
-        # Perform fitting and drawing of fitted shape
-        if len(pts) == 2:
-            xp = np.array([pt[0] for pt in pts])
-            yp = np.array([pt[1] for pt in pts])
-            plt.plot(xp, yp,'y-',alpha=0.5)
-    l_pix = np.linalg.norm(pts[1]-pts[0])
-    pix_per_um = l_pix / l_um
-    # close figure
-    plt.close()
-
-    return pix_per_um
-
-if __name__ == '__main__':
-    pass

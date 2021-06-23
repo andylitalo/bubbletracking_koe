@@ -185,35 +185,6 @@ def format_im(im, pix_per_um, x_range=None, y_range=None, scale_fig=1,
     return p
 
 
-def linked_four_frames(four_frames, pix_per_um, fig_size_red, show_fig=True,
-                      vertical=False):
-    """
-    Shows four frames with linked panning and zooming.
-    
-    Uses format_frame() (LEGACY)
-    """
-    # list of figures
-    p = []
-    # creates images
-    for frame in four_frames:
-        p_new, _ = format_frame(frame, pix_per_um, fig_size_red)
-        p += [p_new]
-    # sets ranges
-    for i in range(1, len(p)):
-        p[i].x_range = p[0].x_range # links horizontal panning
-        p[i].y_range = p[0].y_range # links vertical panning
-    # creates gridplot
-    if vertical:
-        p_grid = gridplot([[plot] for plot in p])
-    else:
-        p_grid = gridplot([[p[0], p[1]], [p[2], p[3]]])
-    # shows figure
-    if show_fig:
-        show(p_grid)
-
-    return p_grid
-
-
 def linked_frames(frame_list, pix_per_um, fig_size_red, shape=(2,2),
                   show_fig=True, brightness=1.0, title_list=[]):
     """
@@ -314,28 +285,4 @@ def make_gridplot(p, shape):
     # creates gridplot
     p_grid = gridplot(p_table)
     
-    return p_grid
-
-
-def six_frame_eda(vid_filepath, f, params, highlight_method, pix_per_um,
-                  fig_size_red, tag=''):
-    """Shows six steps in the image-processing of a frame."""
-    # loads current frame for image subtraction
-    frame, _ = basic.load_frame(vid_filepath, f, bokeh=False)
-    # converts to HSV format
-    val = basic.get_val_channel(frame)
-    # highlights objects and shows each step in the process (6 total)
-    all_steps = highlight_method(val, *params, ret_all_steps=True)
-    im_diff, thresh_bw, closed_bw, obj_bw, obj = all_steps
-
-    # collects images to display
-    im_list = [bokehfy(val), bokehfy(basic.adjust_brightness(im_diff, 3.0)),
-               bokehfy(thresh_bw), bokehfy(closed_bw),
-              bokehfy(obj_bw), bokehfy(obj)]
-    title_list = ['Frame {0:d}: Value Channel (HSV)'.format(f),
-                  'Subtracted Reference (Value)', 'Thresholded',
-                  'Binary Closing', 'Small Obj Removed', 'Holes Filled' + tag]
-    p_grid = linked_frames(im_list, pix_per_um, fig_size_red, shape=(2,3),
-                             brightness=3.0, title_list=title_list)
-
     return p_grid

@@ -203,27 +203,6 @@ def get_dp_R_i_v_max(eta_i, eta_o, L, Q_i, Q_o, R_o, SI=False):
     return dp, R_i, v_max
 
 
-def get_flow_dir(pts):
-    """
-    Returns the flow direction (row, col) given 4 points defining the channel
-    boundary. The flow direction is assumed to be parallel to the more
-    horizontal of the boundaries of the mask.
-
-    Parameters
-    ----------
-    pts : list
-        List of (x,y) values of the vertices that define the boundaries of the
-        channel.
-
-    Returns
-    -------
-    flow_dir : 2-tuple of floats
-        Normalized vector (row, col) pointing in the direction of the flow
-        (assumed to be along the average of the horizontal boundaries)
-    """
-    # categorizes points
-
-
 def get_flow_rates_diff_mu(R_i, R_o, eta_i, eta_o, dp, L):
     """
     Computes the flow rates of inner and outer streams given properties
@@ -249,32 +228,7 @@ def get_flow_rates_diff_mu(R_i, R_o, eta_i, eta_o, dp, L):
     Q_o = np.pi*G/(8*eta_o)*(R_o**2-R_i**2)**2
 
     return Q_i, Q_o
-
-def get_flow_rates_fixed_speed(d_inner, v_center=1.0, ID=500):
-    """
-    Computes the flow rates of inner and outer streams given the width of the
-    inner stream (d_inner) in um, the velocity at the center of the stream
-    (v_center) in m/s, and the inner diameter (ID)in um of the channel.
-
-    Assumes Newtonian fluid and same viscosities for inner and outer streams.
-
-    returns:
-        Q_i = flow rate of inner stream in mL/min
-        Q_o = flow rate of outer stream in mL/min
-    """
-    # convert to SI
-    R_i_m = d_inner/2/1E6
-    R_m = ID/2/1E6
-
-    # compute flow rates
-    Q_i_m3s = np.pi*v_center*R_i_m**2*(1-0.5*(R_i_m/R_m)**2)
-    Q_o_m3s = 0.5*np.pi*v_center*R_m**2 - Q_i_m3s
-
-    # convert units to mL/min
-    Q_i = Q_i_m3s*60E6
-    Q_o = Q_o_m3s*60E6
-
-    return Q_i, Q_o
+    
 
 def get_flow_rates_ri_dp(eta, r_i, dp, r_obs_cap=250, l_obs_cap=10):
     """
@@ -407,46 +361,7 @@ def get_flow_rates(eta, p_i=None, Q_i=None, p_o=None, Q_o=None, l_obs_cap=10,
     Q_o *= 60E9
 
     return Q_i, Q_o
-
-def test_get_flow_rates():
-    """
-    Tests the method "get_flow_rates()".
-    """
-    # test values for inner stream and outer stream pressures [bar]
-    p_i = 12
-    p_o = 10
-    # test value for viscosity
-    eta = 1.412
-
-    # get flow rates
-    Q_i, Q_o = get_flow_rates(eta, p_i=p_i, p_o=p_o)
-    print("Flow rates are Q_i = {Q_i} uL/min and Q_o = {Q_o} uL/min."\
-        .format(Q_i=Q_i, Q_o=Q_o))
-
-    # Test 1: compare pressures
-    p_i_1, p_o_1, p_inner_cap, p_obs_cap = get_pressures(eta, Q_i, Q_o)
-    # print result of test 1
-    print("Test 1")
-    print("Test values of pressure:")
-    print("p_i = {p_i} bar and p_o = {p_o} bar."\
-        .format(p_i=p_i, p_o=p_o))
-    print("Resulting values for the pressure:")
-    print("p_i = {p_i_1} bar and p_o = {p_o_1} bar."\
-        .format(p_i_1=p_i_1, p_o_1=p_o_1))
-
-    # Test 2: compare flow rates given inner pressure and outer flow rate
-    Q_i_2, Q_o_2 = get_flow_rates(eta, p_i=p_i, Q_o=Q_o)
-    print("Test 2: flow rates given inner pressure and outer flow rate")
-    print("Q_i = {Q_i_2} uL/min and Q_o = {Q_o_2} uL/min." \
-        .format(Q_i_2=Q_i_2, Q_o_2=Q_o_2))
-
-    # Test 3: compare flow rates given outer pressure and inner flow rate
-    Qi3, Qo3 = get_flow_rates(eta, p_o=p_o, Q_i=Q_i)
-    print("Test 3: flow rates given outer pressure and inner flow rate")
-    print("Q_i = {Qi3} uL/min and Q_o = {Qo3} uL/min." \
-            .format(Qi3=Qi3, Qo3=Qo3))
-
-    return
+    
 
 def get_pressures(eta, Q_i, Q_o, l_obs_cap=10,
     r_obs_cap=250, l_inner_cap=2.3, r_inner_cap=280, l_tube_i=20,
@@ -520,32 +435,7 @@ def get_inner_stream_radius(Q_i, Q_o, r_obs_cap=250):
     r_inner_stream = r_obs_cap*np.sqrt(1 - np.sqrt(Q_o/(Q_i + Q_o)))
 
     return r_inner_stream
-
-def get_velocity(Q_i, Q_o, r_obs_cap=250):
-    """
-    Calculates the velocity at the center of the inner stream given the flow
-    rates.
-
-    inputs:
-        Q_i         :   flow rate of inner stream [uL/min]
-        Q_o         :   flow rate of outer stream [uL/min]
-        r_obs_cap   :   inner radius of observation capilary [um]
-
-    returns:
-        v_center    :   velocity at center of inner stream [m/s]
-    """
-    # CONVERT TO SI
-    Q_i /= 60E9 # uL/min -> m^3/s
-    Q_o /= 60E9 # uL/min -> m^3/s
-    r_obs_cap /= 1E6 # um -> m
-
-    # maximum velocity in exit capillary [m/s]
-    v_center = 2*(Q_o+Q_i)/(np.pi*r_obs_cap**2)
-    # convert m/s -> cm/s
-    v_center *= 100
-
-    return v_center
-
+    
 
 def p_pois(eta, L, R, Q):
     """
@@ -562,11 +452,6 @@ def p_pois(eta, L, R, Q):
         pressure drop based on Poiseuille flow [Pa]
     """
     return 8*eta*L/(np.pi*R**4)*Q
-
-if __name__=='__main__':
-    Q_i, Q_o = get_flow_rates_fixed_speed(20)
-
-    print('Inner flow rate = %.4f mL/min and outer flow rate = %.2f mL/min' % (Q_i,Q_o))
 
 
 def v_inner(Q_i, Q_o, eta_i, eta_o, R_o, L):

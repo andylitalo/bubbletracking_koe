@@ -1,6 +1,6 @@
 """
 statlib.py is a library of functions useful for computing statistics of 
-bubble classification and identification.
+object classification and identification.
 
 @author Andy Ylitalo
 @date May 14, 2021

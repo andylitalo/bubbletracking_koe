@@ -1,8 +1,10 @@
 """
 improc.py contains definitions of methods for image-processing
-using OpenCV EXCLUSIVELY.
+both for pure-Python analysis and for CvVidProc analysis using
+only OpenCV.
 
-TODO: obj or object? CvVidProc prefers "object"
+TODO: move OpenCV methods to an archive since they were transferred
+to C++ in CvVidProc.
 """
 
 # imports standard libraries
@@ -39,30 +41,6 @@ import cvvidproc
 def appears_in_consec_frames(obj, n_consec=1):
     """Returns True if object appears in consecutive frames."""
     return len(np.where(np.diff(obj.get_props('frame'))==1)[0]) >= n_consec
-
-
-def average_rgb(im):
-    """
-    Given an RGB image, averages RGB to produce b-w image.
-    Note that the order of RGB is not important for this.
-
-    Parameters
-    ----------
-    im : (M x N x 3) numpy array of floats or ints
-        RGB image to average
-
-    Returns
-    -------
-    im_rgb_avg : (M x N) numpy array of floats or ints
-        Black-and-white image of averaged RGB
-
-    """
-    # ensures that the image is indeed in suitable RGB format
-    assert im.shape[2] == 3, "Image must be RGB (M x N x 3 array)."
-    # computes average over RGB values
-    res = np.round(np.mean(im, 2))
-    # converts to uint8
-    return res.astype('uint8')
 
 
 def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive, 
@@ -129,8 +107,7 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     """
     # TODO remove this defn
     f = frames_processed
-    objects_prev = objects_prev
-    objects_archive = objects_archive
+    # extracts keyword arguments for the assign method
     fps = kwargs['fps']
     d_fn = kwargs['d_fn']
     d_fn_kwargs = kwargs['d_fn_kwargs']
@@ -271,6 +248,8 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
                     min_off_axis=4, off_axis_steepness=0.3,
                     alpha=1, beta=1):
     """
+
+    v_max [pix/s]
     Computes the distance between each pair of points in the two sets
     perpendicular to the axis. All inputs must be numpy arrays.
     Wiggle room gives forgiveness for a few pixels in case the bubble is
@@ -288,18 +267,18 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
     comp, d_off_axis = geo.calc_comps(diff, axis)
     
 
-    # computes average distance off central flow axis [pix]
-    row_center = (row_lo + row_hi)/2
-    origin = np.array([row_center, 0])
-    rz1 = c1 - origin
-    _, r1 = geo.calc_comps(rz1, axis)
-    rz2 = c2 - origin
-    _, r2 = geo.calc_comps(rz2, axis)
-    r = (r1 + r2)/2
-    # computes inner stream radius [pix]
-    R = np.abs(row_lo - row_hi)
+    # # computes average distance off central flow axis [pix]
+    # row_center = (row_lo + row_hi)/2
+    # origin = np.array([row_center, 0])
+    # rz1 = c1 - origin
+    # _, r1 = geo.calc_comps(rz1, axis)
+    # rz2 = c2 - origin
+    # _, r2 = geo.calc_comps(rz2, axis)
+    # r = (r1 + r2)/2
+    # # computes inner stream radius [pix]
+    # R = np.abs(row_lo - row_hi)
     # computes velocity assuming Poiseuille flow [pix/s]
-    v = v_max*(1 - (r/R)**2)
+    v = v_max #*(1 - (r/R)**2)
     # time step per frame [s]
     dt = 1/fps
     # expected distance along projected axis [pix]
@@ -310,7 +289,7 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
     # moderate penalty if it is off the axis or far from expected position
     d = alpha*d_off_axis + beta*np.abs((comp - comp_expected)/comp_expected) + \
         upstream_penalty*(comp < min_travel)
-    
+
     return d
 
 
@@ -346,30 +325,6 @@ def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
 
     return bkgd_mean
 
-    
-# def compute_bkgd_med(vid_path, num_frames=100):
-#     """
-#     Same as compute_bkgd_med_thread() but does not use threading. More reliable
-#     and predictable, but slower.
-#
-#     TODO: missing med_alg definition that accurately computes median
-#     """
-#     cap = cv2.VideoCapture(vid_path)
-#     ret, frame = cap.read()
-#     if not ret:
-#         return None
-#     # computes the median
-#     frame_trio = proc_frames(cap, med_alg, ([frame],),
-#                                     num_frames=num_frames)
-#     print('finished')
-#     # the median value of pixels is the first object in the frame trio list
-#     bkgd_med = frame_trio[0][0].astype('uint8')
-
-#     # takes value channel if color image provided
-#     if len(bkgd_med.shape) == 3:
-#         bkgd_med = basic.get_val_channel(bkgd_med)
-
-#     return bkgd_med
 
 def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
 			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
@@ -508,14 +463,30 @@ def frame_and_fill(im, w=2):
     # filled if object is on the edge of the frame (because then that
     # open space is not completely bounded)
     im_filled = basic.fill_holes(im_framed)
-    im = mask_im(im_filled, np.logical_not(mask_frame_sides))
+    im = mask.mask_image(im_filled, np.logical_not(mask_frame_sides))
 
     return im
 
 
 def get_frame_IDs(objects_archive, start, end, every):
-    """Returns list of IDs of objects in each frame"""
-    # TODO: fix bug when every != 1
+    """
+    Returns list of ID numbers of the objects identified in each frame.
+    
+    Parameters
+    ----------
+    objects_archive : dictionary
+        Dictionary of objects identified in a video labeled by ID number
+    start, end, every : ints
+        start = index of first frame to analyze; end = index of last frame
+        to analyze; every = analyze every `every` frame (e.g., if every = 3,
+        analyzes every 3rd frame)
+    
+    Returns
+    -------
+    frame_IDs : dictionary
+        Dictionary indexed by frame number in the video. Each entry is
+        a list of the ID numbers of the objects identified in that frame.
+    """
     # initializes dictionary of IDs for each frame
     frame_IDs = {}
     for f in range(start, end, every):
@@ -528,25 +499,6 @@ def get_frame_IDs(objects_archive, start, end, every):
             frame_IDs[f] += [ID]
 
     return frame_IDs
-
-
-def get_points(Npoints=1,im=None):
-    """ Alter the built in ginput function in matplotlib.pyplot for custom use.
-    This version switches the function of the left and right mouse buttons so
-    that the user can pan/zoom without adding points. NOTE: the left mouse
-    button still removes existing points.
-    INPUT:
-        Npoints = int - number of points to get from user clicks.
-    OUTPUT:
-        pp = list of tuples of (x,y) coordinates on image
-    """
-    if im is not None:
-        plt.imshow(im)
-        plt.axis('image')
-
-    pp = plt.ginput(n=Npoints,mouse_add=3, mouse_pop=1, mouse_stop=2,
-                    timeout=0)
-    return pp
 
 
 def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
@@ -619,11 +571,17 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     Only accepts 2D frames.
     """
+    # checks that the frames are 2D and that low threshold is lower than the high
     assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
         'improc.highlight_obj_hyst_thresh() only accepts 2D frames.'
     assert th_lo < th_hi, \
         'In improc.highlight_objects_hyst_thresh(), low threshold must be lower.'
 
+    # # masks inputs--TODO needs row_lo and row_hi to crop mask to same size as images
+    # if mask_data is not None:
+    #     frame = mask.mask_image(frame, mask_data['mask'])
+    #     bkgd = mask.mask_image(bkgd, mask_data['mask'])
+        
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
     # based on assumption that objects are darker than bkgd, ignore all 
@@ -655,9 +613,6 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
 
     # merges images to create final image and masks result
     obj = np.logical_or(obj_1, obj_2)
-    # TODO determine if I want to mask here
-    #if mask_data is not None:
-    #    obj = np.logical_and(obj, mask_data['mask'])
 
     # returns intermediate steps if requeseted.
     if ret_all_steps:
@@ -729,11 +684,6 @@ def hysteresis_threshold(im, th_lo, th_hi):
     return im_thresh
 
 
-def is_color(im):
-    """Returns True if the image is a color image (3 channels) and false if not."""
-    return len(im.shape) == 3
-
-
 def is_on_border(bbox, im, width_border):
     """
     Checks if object is on the border of the frame.
@@ -787,42 +737,6 @@ def lost_obj(centroid_pred, frame_labeled, ID, objects_archive):
     return lost
 
 
-def mask_im(im, mask):
-    """
-    Returns image with all pixels outside mask blacked out
-    mask is boolean array or array of 0s and 1s of same shape as image
-    """
-    # Applies mask depending on dimensions of image
-    tmp = np.shape(im)
-    im_masked = np.zeros_like(im)
-    if len(tmp) == 3:
-        for i in range(3):
-            im_masked[:,:,i] = mask*im[:,:,i]
-    else:
-        im_masked = im*mask
-
-    return im_masked
-
-
-def measure_labeled_im_width(im_labeled, um_per_pix):
-    """
-    j
-    """
-    # Count labeled pixels in each column (roughly stream width)
-    num_labeled_pixels = np.sum(im_labeled, axis=0)
-    # Use coordinates of corners of labeled region to correct for oblique angle
-    # (assume flat sides) and convert from pixels to um
-    angle_correction = get_angle_correction(im_labeled)
-    stream_width_arr = num_labeled_pixels*um_per_pix*angle_correction
-    # remove columns without any stream (e.g., in case of masking)
-    stream_width_arr = stream_width_arr[stream_width_arr > 0]
-    # get mean and standard deviation
-    mean = np.mean(stream_width_arr)
-    std = np.std(stream_width_arr)
-
-    return mean, std
-
-
 def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     """
     Computes the distance matrix of distances between each pair of previous
@@ -865,28 +779,6 @@ def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     return d_mat
 
 
-def one_2_uint8(im, copy=True):
-    """
-    Returns a copy of an image scaled from 0 to 1 as an image of uint8's scaled
-    from 0-255.
-
-    Parameters
-    ----------
-    im : 2D or 3D array of floats
-        Image with pixel intensities measured from 0 to 1 as floats
-    copy : bool, optional
-        If True, image will be copied first
-
-    Returns
-    -------
-    im_uint8 : 2D or 3D array of uint8's
-        Image with pixel intensities measured from 0 to 255 as uint8's
-    """
-    if copy:
-        im = np.copy(im)
-    return (255*im).astype('uint8')
-
-
 def out_of_bounds(pt, shape):
     """
     Returns True if point is in the bounds given by shape, False if not.
@@ -908,93 +800,6 @@ def out_of_bounds(pt, shape):
     # otherwise, out of bounds
     else:
         return True
-
-
-def prep_for_mpl(im):
-    """
-    Prepares an image for display in matplotlib's imshow() method.
-
-    Parameters
-    ----------
-    im : (M x N x 3) or (M x N) numpy array of uint8 or float
-        Image to convert.
-
-    Returns
-    -------
-    im_p : same dims as im, numpy array of uint8
-        Image prepared for matplotlib's imshow()
-
-    """
-    if is_color(im):
-        im_p = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-    else:
-        im_p = np.copy(im)
-    im_p = 255.0 / np.max(im_p) * im_p
-    im_p = im_p.astype('uint8')
-
-    return im_p
-
-
-def proc_frames(cap, alg, args, num_frames=100, report_freq=10):
-    """
-    Processes frames without using threading due to unpredictable outcomes.
-    """
-    # initializes result by applying algorithm to first frame
-    ret, result = alg(cap, *args)
-    # initializes counter at 3 because the next computation will be the 3rd
-    # (args is first, result is second)
-    ctr = 3
-    # loops through frames performing algorithm to process them
-    while ret:
-
-        # computes algorithmic step
-        ret, result = alg(cap, *result)
-
-        # reports counter and progress
-        ctr += 1
-        if ctr > num_frames:
-            break
-        if (ctr % report_freq) == 0:
-            print('Completed {0:d} frames of {1:d}.'.format(ctr, num_frames))
-
-    # when everything is done, releases the capture
-    cap.release()
-
-    return result
-
-
-def proc_im_seq(im_path_list, proc_fn, params, columns=None):
-    """
-    Processes a sequence of images with the given function and returns the
-    results. Images are provided as filepaths to images, which are loaded (and
-    possibly copied before analysis to preserve the image).
-
-    Parameters:
-        im_path_list : array-like
-            Sequence of filepaths to the images to be processed
-        proc_fn : function handle
-            Handle of function to use to process image sequence
-        params : list
-            List of parameters to plug into the processing function
-        columns : array-like, optional
-            Results from image processing are saved to this dataframe
-
-    Returns:
-        output : list (optionally, Pandas DataFrame if columns given)
-            Results from image processing
-    """
-    # Initialize list to store results from image processing
-    output = []
-    # Process each image in sequence.
-    for im_path in im_path_list:
-        print("Begin processing {im_path}.".format(im_path=im_path))
-        im = plt.imread(im_path)
-        output += [proc_fn(im, params)]
-    # If columns provided, convert list into a dataframe
-    if columns:
-        output = pd.DataFrame(output, columns=columns)
-
-    return output
 
 
 def region_props(bw_frame, n_frame=-1, width_border=5):
@@ -1178,32 +983,6 @@ def remove_small_objects_connected(im, min_size):
             im_labeled[np.where(im_labeled==i)] = max_val
 
     return im_labeled.astype('uint8')
-
-
-def scale_by_brightfield(im, bf):
-    """
-    scale pixels by value in brightfield
-
-    Parameters:
-        im : array of floats or ints
-            Image to scale
-        bf : array of floats or ints
-            Brightfield image for scaling given image
-
-    Returns:
-        im_scaled : array of uint8
-            Image scaled by brightfield image
-    """
-    # convert to intensity map scaled to 1.0
-    bf_1 = bf.astype(float) / 255.0
-    # scale by bright field
-    im_scaled = np.divide(im,bf_1)
-    # rescale result to have a max pixel value of 255
-    im_scaled *= 255.0/np.max(im_scaled)
-    # change type to uint8
-    im_scaled = im_scaled.astype('uint8')
-
-    return im_scaled
 
 
 def thresh_im(im, thresh=-1, c=5):

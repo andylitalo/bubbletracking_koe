@@ -92,7 +92,7 @@ def main():
 
     # loads mask data; user creates new mask by clicking if none available
     first_frame, _ = basic.load_frame(vid_path, 0)
-    flow_dir, mask_data = ui.click_sheath_flow(first_frame,
+    flow_dir, mask_data = ui.click_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
     # computes minimum and maximum rows for object tracking computation
     row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
@@ -185,11 +185,11 @@ def main():
     ########################## 4) SAVE RESULTS #################################
     # stores metadata (I will not store video parameters or parameters from the
     # input file since they are stored elsewhere already)
-    metadata = {'input name' : p['input_name'], 'bkgd' : bkgd, 'flow dir' : flow_dir,
-                'mask data' : mask_data, 'row lo' : row_lo, 'row hi' : row_hi,
+    metadata = {'input_name' : p['input_name'], 'bkgd' : bkgd, 'flow_dir' : flow_dir,
+                'mask_data' : mask_data, 'row_lo' : row_lo, 'row_hi' : row_hi,
                 'dp' : dp, 'R_i' : R_i, 'v_max' : v_max, 'v_inner' : v_inner,
-                'args' : highlight_kwargs, 'frame IDs' : frame_IDs,
-                'pix_per_um' : pix_per_um, 'input params' : p}
+                'args' : highlight_kwargs, 'frame_IDs' : frame_IDs,
+                'pix_per_um' : pix_per_um, 'input_params' : p}
 
     # stores data
     data = {}
