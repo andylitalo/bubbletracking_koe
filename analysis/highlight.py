@@ -182,7 +182,7 @@ def highlight_and_save_image(image, f, highlight_method,
 
     # highlights object according to parameters from data file
     bkgd = metadata['bkgd']
-    highlighted = highlight_method(val, bkgd, **metadata['args'])
+    highlighted = highlight_method(val, bkgd, **metadata['highlight_kwargs'])
     # applies highlights
     frame_labeled, num_labels = skimage.measure.label(highlighted, return_num=True)
     # OpenCV version--less convenient
@@ -313,7 +313,7 @@ def highlight_and_save_tracked_video(input_file, input_dir, output_dir,
         # loads frame
         frame = basic.read_frame(cap, f)
         # highlights and saves frame
-        highlight_and_save_image(frame, f, p['highlight_method'],
+        highlight_and_save_image(frame, f, cfg.highlight_method,
                                 metadata, objects, IDs, figs_dir,
                                 brightness, ext, color_object, offset,
                                 std_color, border_color, error_color)

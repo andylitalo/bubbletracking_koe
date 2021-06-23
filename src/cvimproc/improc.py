@@ -44,7 +44,7 @@ def appears_in_consec_frames(obj, n_consec=1):
 
 
 def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive, 
-                next_ID, kwargs, ObjectClass=TrackedObject, object_kwargs={}):
+                next_ID, kwargs):
     """
     Assigns objects with unique IDs to the labeled objects on the video
     frame provided. This method is used on a single frame in the context of
@@ -92,6 +92,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
             Maximum velocity expected due to Poiseuille flow [pix/s]
         min_size_reg : int
             Objects must have a greater area than this threshold to be registered.
+        ObjectClass : class
+            Class in which to instantiate objects
         object_kwargs : dictionary
             Keyword arguments needed for the instantiation of an object from 
             ObjectClass
@@ -116,6 +118,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     row_lo = kwargs['row_lo']
     row_hi = kwargs['row_hi']
     remember_objects = kwargs['remember_objects']
+    ObjectClass = kwargs['ObjectClass']
+    object_kwargs = kwargs['object_kwargs']
 
     # computes frame dimesions
     frame_dim = bw_frame.shape
@@ -243,11 +247,19 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     return next_ID
 
 
-def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
-                      min_travel=0, upstream_penalty=1E5,
-                    min_off_axis=4, off_axis_steepness=0.3,
-                    alpha=1, beta=1):
+def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, 
+                        v_max, v_interf, fps,
+                        min_travel=0, upstream_penalty=1E5,
+                        min_off_axis=4, off_axis_steepness=0.3,
+                        alpha=1, beta=1):
     """
+    Heuristic function for quantifying "distance" between objects in
+    videos of bubbles in flow used for assigning consistent labels to
+    objects during object-tracking.
+    Incorporates predicted velocity of stream.
+
+    Parameters
+    ----------
 
     v_max [pix/s]
     Computes the distance between each pair of points in the two sets
@@ -267,18 +279,18 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi, v_max, fps,
     comp, d_off_axis = geo.calc_comps(diff, axis)
     
 
-    # # computes average distance off central flow axis [pix]
-    # row_center = (row_lo + row_hi)/2
-    # origin = np.array([row_center, 0])
-    # rz1 = c1 - origin
-    # _, r1 = geo.calc_comps(rz1, axis)
-    # rz2 = c2 - origin
-    # _, r2 = geo.calc_comps(rz2, axis)
-    # r = (r1 + r2)/2
-    # # computes inner stream radius [pix]
-    # R = np.abs(row_lo - row_hi)
+    # computes average distance off central flow axis [pix]
+    row_center = (row_lo + row_hi)/2
+    origin = np.array([row_center, 0])
+    rz1 = c1 - origin
+    _, r1 = geo.calc_comps(rz1, axis)
+    rz2 = c2 - origin
+    _, r2 = geo.calc_comps(rz2, axis)
+    r = (r1 + r2)/2
+    # computes inner stream radius [pix]
+    R = np.abs(row_lo - row_hi)
     # computes velocity assuming Poiseuille flow [pix/s]
-    v = v_max #*(1 - (r/R)**2)
+    v = (v_max - v_interf)*(1 - (r/R)**2) + v_interf
     # time step per frame [s]
     dt = 1/fps
     # expected distance along projected axis [pix]

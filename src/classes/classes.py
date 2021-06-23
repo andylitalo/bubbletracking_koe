@@ -36,6 +36,9 @@ class TrackedObject:
         """
         # stores metadata
         self.metadata = {'ID' : ID, 'fps' : fps, 'frame_dim' : frame_dim}
+        for key in kwargs.keys():
+            self.metadata[key] = kwargs[key]
+
         # initializes storage of raw properties
         self.props_raw = {'frame':[], 'centroid':[], 'area':[], 'major axis':[],
                           'minor axis':[], 'orientation':[], 'bbox':[],
@@ -178,7 +181,6 @@ class TrackedObject:
 
 
 
-
 class Bubble(TrackedObject):
     def __init__(self, ID, fps, frame_dim, props_raw=[], **kwargs):
         """
@@ -207,9 +209,6 @@ class Bubble(TrackedObject):
         """
         # uses TrackedObject init fn to lay foundation for the object
         super().__init__(ID, fps, frame_dim, props_raw=props_raw, **kwargs)
-        # adds Bubble-specific metadata
-        self.metadata['flow_dir'] = kwargs['flow_dir']
-        self.metadata['pix_per_um'] = kwargs['pix_per_um']
         # adds Bubble-specific properties
         self.props_proc['radius'] = []
         self.props_proc['average radius'] = None
@@ -221,7 +220,7 @@ class Bubble(TrackedObject):
 
        
     ###### MUTATORS ########
-    def classify(self, v_interf):
+    def classify(self, v_interf, max_aspect_ratio=10):
         """
         Classifies bubble as inner or outer stream based on velocity cutoff.
         N.B.: If there is no inner stream (inner stream flow rate Q_i = 0),
@@ -237,7 +236,7 @@ class Bubble(TrackedObject):
         v = self.props_proc['average speed']
 
         # if the bubble's aspect ratio is too large, classify as error (-1)
-        if np.max(self.props_proc['aspect ratio']) > self.metadata['max aspect ratio']:
+        if np.max(self.props_proc['aspect ratio']) >= max_aspect_ratio:
             inner = -1
         # if no velocity recorded, classifies as inner stream (assumes too fast
         # to be part of outer stream)
@@ -297,16 +296,24 @@ class Bubble(TrackedObject):
         # computes radius [um] as geometric mean of three diameters of the
         # bubble divided by 8 to get radius. Assumes symmetry about major axis
         # such that diameter in the other two dimensions is the minor axis
+        # uses width and height if major and minor axes were not computed
+        if None in self.props_raw['major axis'] or None in self.props_raw['minor axis']:
+            major_list = [col_max - col_min for _, col_min, _, col_max in self.props_raw['bbox']]
+            minor_list = [row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]
+        else:
+            major_list = self.props_raw['major axis']
+            minor_list = self.props_raw['minor axis']
         self.props_proc['radius'] = [((major*minor*minor)**(1.0/3)/8) / \
                                     self.metadata['pix_per_um'] for major, minor in\
                                     zip(major_list, minor_list)]
         self.props_proc['average radius'] = np.mean(self.props_proc['radius'])
-      
+
         # converts speed from pix/s to m/s (TrackedObject only computes speed in pix/s)
         pix_per_um = self.metadata['pix_per_um']
-        v_m_s = [v/pix_per_um*um_2_m for v in self.proc_props['speed']]
+        v_m_s = [v/pix_per_um*um_2_m for v in self.props_proc['speed']]
         self.props_proc['speed [m/s]'] = v_m_s
-        self.props_proc['average speed [m/s]'] = np.mean(v_m_s)
+        if len(v_m_s) > 0:
+            self.props_proc['average speed [m/s]'] = np.mean(v_m_s)
 
 
     ### HELPER FUNCTIONS ###
@@ -319,12 +326,10 @@ class Bubble(TrackedObject):
         row, col = centroid
         # gets opposite direction from flow
         rev_dir = -np.array(self.metadata['flow_dir'])
-
         frame_dim = self.metadata['frame_dim']
         # computes steps to boundary in row and col directions
         n_r = self.steps_to_boundary(row, frame_dim[0], rev_dir[0])
         n_c = self.steps_to_boundary(col, frame_dim[1], rev_dir[1])
-
         # takes path requiring fewest steps
         if n_r <= n_c:
             row_off = row + n_r*rev_dir[0]

@@ -21,7 +21,7 @@ import cvimproc.improc as improc
 import cvimproc.basic as basic
 
 # imports global conversions
-from genl.conversions import *
+import genl.conversions as conv
 
 # imports configurations and global variables
 import sys
@@ -72,13 +72,12 @@ def load_params(input_file):
     p['eta_i'] = float(params['eta_i'])
     p['eta_o'] = float(params['eta_o'])
     p['L'] = float(params['L'])
-    p['R_o'] = um_2_m*float(params['R_o']) # [m]
+    p['R_o'] = conv.um_2_m*float(params['R_o']) # [m]
 
     # image-processing parameters
     sd = int(params['selem_dim'])
     p['selem'] = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sd, sd))
     p['width_border'] = int(params['width_border'])
-    p['num_frames_for_bkgd'] = int(params['num_frames_for_bkgd'])
     p['start'] = int(params['start'])
     p['end'] = int(params['end'])
     p['every'] = int(params['every'])
@@ -91,11 +90,7 @@ def load_params(input_file):
     p['min_size_hyst'] = int(params['min_size_hyst'])
     p['min_size_th'] = int(params['min_size_th'])
     p['min_size_reg'] = int(params['min_size_reg'])
-    p['photron'] = bool(params['photron'])
-    h_m_str = params['highlight_method']
-    assert h_m_str in cfg.highlight_methods, \
-            '{0:s} not valid highlight method in readin.py'.format(h_m_str)
-    p['highlight_method'] = cfg.highlight_methods[h_m_str]
+    p['camera'] = params['camera']
 
     # file parameters
     p['vid_subdir'] = params['vid_subdir']
@@ -105,16 +100,15 @@ def load_params(input_file):
     # *Note: must move up one directory to `src` for correct filepath
     vid_path =  os.path.join(cfg.input_dir, p['vid_subdir'], p['vid_name'])
     p['end'] = basic.get_frame_count(vid_path, p['end'])
+
+    # ensures that the number of frames for the background is less than total
+    p['num_frames_for_bkgd'] = min(int(params['num_frames_for_bkgd']), p['end'])
     
     return p
+    
 
 def correct_thresholds(p):
     """
     Checks that the thresholds are ordered th_lo < th < th_hi
     """
     return (p['th_lo'] < p['th']) and (p['th'] < p['th_hi'])
-
-    #return (input_name, eta_i, eta_o, L, R_o, selem, width_border, fig_size_red,
-    #        num_frames_for_bkgd, start, end, every, th, th_lo, th_hi,
-    #        min_size_hyst, min_size_th, min_size_reg, highlight_method,
-    #        vid_subdir, vid_name, expmt_dir)
