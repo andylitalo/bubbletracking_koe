@@ -65,7 +65,7 @@ def bbox_obj(frame, objs, ID, f, color, label_key=None, offset=10):
     if ID not in objs.keys():
         return
     
-    # shows number ID of bubble in image
+    # shows number ID of object in image
     # first finds the centroid of the object
     centroid = objs[ID].get_prop('centroid', f)
     # converts centroid from (row, col) to (x, y) for open-cv
@@ -121,7 +121,7 @@ def get_dirs(p):
     return vid_path, vid_dir, data_dir, figs_dir
 
 
-def label_and_measure_objs(p, frame_labeled, bubbles, pix_per_length):
+def label_and_measure_objs(p, frame_labeled, objects, pix_per_length):
     """
     """
     # initializes lists for storing coordinates of bounding boxes and axes    
@@ -135,21 +135,21 @@ def label_and_measure_objs(p, frame_labeled, bubbles, pix_per_length):
     x_majs = []
     y_majs = []
     
-    for i in bubbles:
-        bubble = bubbles[i]
+    for i in objects:
+        obj = objects[i]
         
         # overlays bounding box
-        row_min, col_min, row_max, col_max = bubble['bbox']
+        row_min, col_min, row_max, col_max = obj['bbox']
         x += [(col_max + col_min) / 2 / pix_per_length]
         y += [(row_max + row_min) / 2 / pix_per_length]
         w += [(col_max - col_min) / pix_per_length]
         h += [(row_max - row_min) / pix_per_length]
         name += [str(i)]
         
-        yc, xc = bubble['centroid']
-        orientation = bubble['orientation']
-        semiminor_axis = bubble['semiminor axis']
-        semimajor_axis = bubble['semimajor axis']
+        yc, xc = obj['centroid']
+        orientation = obj['orientation']
+        semiminor_axis = obj['semiminor axis']
+        semimajor_axis = obj['semimajor axis']
         
         # converts from pixels to microns
         xc /= pix_per_length
@@ -165,11 +165,11 @@ def label_and_measure_objs(p, frame_labeled, bubbles, pix_per_length):
     # collects data
     source = ColumnDataSource(dict(x=x, y=y, w=w, h=h, name=name))
     
-    # plots bounding box around each bubble
+    # plots bounding box around each object
     glyph = Rect(x="x", y="y", width="w", height="h", fill_alpha=0, line_color='white')
     p.add_glyph(source, glyph)
     
-    # plots major and minor axis of each bubble
+    # plots major and minor axis of each object
     for x_min, y_min, x_maj, y_maj in zip(x_mins, y_mins, x_majs, y_majs):
         line_source = ColumnDataSource(dict(x_min=x_min, y_min=y_min, x_maj=x_maj, y_maj=y_maj))
         minor = Line(x="x_min", y="y_min", line_width=1, line_alpha=0.6)
@@ -177,7 +177,7 @@ def label_and_measure_objs(p, frame_labeled, bubbles, pix_per_length):
         p.add_glyph(line_source, minor)
         p.add_glyph(line_source, major)
     
-    # labels bubbles
+    # labels objects
     labels = LabelSet(x='x', y='y', text='name', x_offset=-6, y_offset=-8, source=source, render_mode='canvas')
     p.add_layout(labels)
 
@@ -201,25 +201,25 @@ def store_region_props(frame_labeled, num, width_border=2):
     """
     # identifies the different objects in the frame
     region_props = skimage.measure.regionprops(frame_labeled)
-    bubbles = {}
+    objects = {}
     for i, props in enumerate(region_props):
-        # creates dictionary of bubble properties for one frame
+        # creates dictionary of object properties for one frame
         # for all the measured properties, see:
         # https://scikit-image.org/docs/dev/api/skimage.measure.html
-        bubble = {}
-        bubble['centroid'] = props.centroid
-        bubble['area'] = props.area
-        bubble['orientation'] = props.orientation
+        obj = {}
+        obj['centroid'] = props.centroid
+        obj['area'] = props.area
+        obj['orientation'] = props.orientation
         # really the semi-major and semi-minor axes
-        bubble['semimajor axis'] = props.major_axis_length
-        bubble['semiminor axis'] = props.minor_axis_length
-        bubble['bbox'] = props.bbox # (row_min, col_min, row_max, col_max)
-        bubble['frame'] = num
-        bubble['on border'] = improc.is_on_border(props.bbox,
+        obj['semimajor axis'] = props.major_axis_length
+        obj['semiminor axis'] = props.minor_axis_length
+        obj['bbox'] = props.bbox # (row_min, col_min, row_max, col_max)
+        obj['frame'] = num
+        obj['on border'] = improc.is_on_border(props.bbox,
               frame_labeled, width_border)
-        bubble['solidity'] = props.solidity
-        bubble['aspect ratio'] = bubble['semimajor axis'] / bubble['semiminor axis']
-        # adds dictionary for this bubble to list of bubbles in current frame
-        bubbles[i] = bubble
+        obj['solidity'] = props.solidity
+        obj['aspect ratio'] = obj['semimajor axis'] / obj['semiminor axis']
+        # adds dictionary for this object to list of objects in current frame
+        objects[i] = obj
         
-    return bubbles
+    return objects

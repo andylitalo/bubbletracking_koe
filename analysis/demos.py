@@ -98,7 +98,7 @@ def compare_bkgd_algos(vid_path, num_frames_for_bkgd, mag=4,
     mask_path = vid_path[:-4] + '_mask.pkl'
     pix_per_um = pix_per_um_photron[mag]
 
-    # 1) Extracts bubble-free frame
+    # 1) Extracts object-free frame
     start_time = time.time()
     first_frame, ret = basic.load_frame(vid_path, 0)
     print('Extracted first frame in {0:.3f} s'.format(time.time() - start_time))
@@ -204,7 +204,7 @@ def false_color_bkgd_sub(vid_path, num, x_range,
     return p, signed_diff, bkgd
 
 
-def compare_roc(vid_path, true_bubbles_path):
+def compare_roc(vid_path, true_objects_path):
     """
     Compares the receiver operating characteristic (ROC) curve for
     different detection metrics: mean, standard deviation, and minimum 
@@ -214,8 +214,8 @@ def compare_roc(vid_path, true_bubbles_path):
     ----------
     vid_path : string
         Filepath to the video to analyze
-    true_bubbles_path : string
-        Filepath to csv file containing list of frames with a true bubble
+    true_objects_path : string
+        Filepath to csv file containing list of frames with a true object
         
     Returns
     -------
@@ -231,10 +231,10 @@ def compare_roc(vid_path, true_bubbles_path):
     # computes the mean, mean^2, standard deviation, and minimum value of each background-subtracted frame
     mean_list, mean_sq_list, stdev_list, min_val_list = stat.proc_stats(vid_path, bkgd, num_frames-1)
 
-    # loads array of true bubbles (labeled by eye manually)
-    true_bubbles = np.genfromtxt(true_bubbles_path, dtype=int, delimiter=',')
+    # loads array of true objects (labeled by eye manually)
+    true_objects = np.genfromtxt(true_objects_path, dtype=int, delimiter=',')
     # produces binary vector of labels
-    y = stat.inds_to_labels(true_bubbles, num_frames)
+    y = stat.inds_to_labels(true_objects, num_frames)
 
     ### COMPUTES ROC FOR DIFFERENT METRICS ###
     # converts each metric so that higher values corespond to positive label
@@ -564,8 +564,8 @@ def segment_and_measure(vid_path, num, th_lo, th_hi, r_selem, min_size,
     -------
     p_grid : Bokeh figure
         Linked frames showing original image and segmented image with properties plotted
-    bubbles : dictionary
-        Dictionary of region properties of each bubble, labeled by index
+    objects : dictionary
+        Dictionary of region properties of each object, labeled by index
     """
     # background subtraction (median, threaded)
     signed_diff = improc.bkgd_sub_signed(vid_path, num, bkgd=bkgd, 
@@ -591,11 +591,11 @@ def segment_and_measure(vid_path, num, th_lo, th_hi, r_selem, min_size,
     # removes small objects from thresholded image
     small_obj_rm = skimage.morphology.remove_small_objects(closed, min_size=min_size)
 
-    # finds bubbles and assigns IDs to track them, saving to archive
+    # finds objects and assigns IDs to track them, saving to archive
     frame_labeled = skimage.measure.label(small_obj_rm)
     
     # creates dictionaries of properties for each object
-    bubbles = dh.store_region_props(frame_labeled, num, width_border=width_border)
+    objects = dh.store_region_props(frame_labeled, num, width_border=width_border)
 
     # looks up pixels per micron conversion
     pix_per_um = pix_per_um_photron[mag]
@@ -615,13 +615,13 @@ def segment_and_measure(vid_path, num, th_lo, th_hi, r_selem, min_size,
                         title='Region Props of Frame {0:d}'.format(num), hide_colorbar=True)
    
     # graphically overlays measured properties
-    p = dh.label_and_measure_objs(p, frame_labeled, bubbles, pix_per_um)
+    p = dh.label_and_measure_objs(p, frame_labeled, objects, pix_per_um)
     
     p_grid = pltim.make_gridplot([p_im, p], (2,1))
     if show_fig:
         show(p_grid)
 
-    return p_grid, bubbles
+    return p_grid, objects
     
     
 ################### DEMO 4 - HOW TO TRACK OBJECTS ###########################
@@ -744,11 +744,11 @@ def save_tracked_ims(vid_path, objs, frame_IDs, save_dir, start=0, end=-1, every
     if end == -1:
         end = basic.count_frames(vid_path)
 
-    # loops through frames of video with bubbles according to data file
+    # loops through frames of video with objects according to data file
     for f in range(start, end, every):
         frame = basic.read_frame(cap, f)
 
-         # labels bubbles
+         # labels objects
         IDs = frame_IDs[f]
         for ID in IDs: 
             dh.bbox_obj(frame, objs, ID, f, color, label_key=label_key, offset=offset)
@@ -803,7 +803,7 @@ def track_objects(vid_path, th, th_lo, th_hi, min_size,
     -------
     objs_filtered : dictionary
         Dictionary of objects that passed the filter, indexed by ID # and containing
-        properties in the format of a Bubble object (see `Bubble` in `classes/classes.py`)
+        properties in the format of a TrackedObject (see `TrackedObject` in `classes/classes.py`)
     frame_IDs : dictionary
         Dictionary of frame numbers with lists of objects detect in that frame; includes
         objects that were filtered out and not included in `objs_filtered`
@@ -817,7 +817,7 @@ def track_objects(vid_path, th, th_lo, th_hi, min_size,
     if end == -1:
         end = basic.count_frames(vid_path)
 
-    # organizes arguments for bubble segmentation function
+    # organizes arguments for object segmentation function
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
         'print_freq' : print_freq,
@@ -825,10 +825,10 @@ def track_objects(vid_path, th, th_lo, th_hi, min_size,
         'end' : end,
         'every' : every,
         'flow_dir' : (0,0),
-        'assign_bubbles_method' : improc.assign_objs
+        'assign_objects_method' : improc.assign_objs
     }
 
-    # all arguments for highlight_bubble_method besides "frame" and "bkgd" (first 2)
+    # all arguments for highlight_object_method besides "frame" and "bkgd" (first 2)
     highlight_kwargs = {'th' : th,
                         'th_lo' : th_lo,
                         'th_hi' : th_hi,
@@ -838,7 +838,7 @@ def track_objects(vid_path, th, th_lo, th_hi, min_size,
                         'selem' : cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_selem, r_selem)),
     }
 
-    assignbubbles_kwargs = {'d_fn' : improc.d_euclid_bw_obj,
+    assignobjects_kwargs = {'d_fn' : improc.d_euclid_bw_obj,
                             'd_fn_kwargs' : {},
                             'fps' : cv2.VideoCapture(vid_path).get(cv2.CAP_PROP_FPS),
                             'row_lo' : 0, # doesn't crop if both are 0
@@ -846,11 +846,11 @@ def track_objects(vid_path, th, th_lo, th_hi, min_size,
                             'remember_objs' : remember_objs
     }
 
-    # times and executes bubble-tracking
+    # times and executes object-tracking
     start_time = time.time()
-    objs, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
-        track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
-    print('{0:d} frames analyzed with bubble-tracking in {1:.3f} s.'.format(
+    objs, frame_IDs = improc.track_object(improc.track_object_cvvidproc,
+        track_kwargs, highlight_kwargs, assignobjects_kwargs, ret_IDs=True)
+    print('{0:d} frames analyzed with object-tracking in {1:.3f} s.'.format(
         int((end-start)/every),
         time.time()-start_time))
     
@@ -1008,12 +1008,12 @@ def process_video(p, replace=False, use_prev_bkgd=False,
     
     track_kwargs = {'vid_path' : vid_path,
         'bkgd' : bkgd,
-        'highlight_bubble_method' : cfg.highlight_methods[p['highlight_method']],
+        'highlight_object_method' : cfg.highlight_methods[p['highlight_method']],
         'print_freq' : print_freq,
         'start' : p['start'],
         'end' : p['end'],
         'every' : p['every'],
-        'assign_bubbles_method' : improc.assign_bubbles
+        'assign_objects_method' : improc.assign_objects
     }
 
     highlight_kwargs = {'th' : p['th'],
@@ -1026,18 +1026,27 @@ def process_video(p, replace=False, use_prev_bkgd=False,
         'mask_data' : mask_data
     }
 
-    assignbubbles_kwargs = {'pix_per_um' : pix_per_um,
-        'flow_dir' : p['flow_dir'],  # flow_dir should be in (row, col) format.
-        'fps' : p['fps'],  # extracts fps from video filepath
+    # defines keyword arguments for distance function used in tracking
+    d_fn_kwargs = {
+        'axis' : flow_dir,
         'row_lo' : row_lo,
         'row_hi' : row_hi,
         'v_max' : v_max*m_2_um*pix_per_um,  # convert max velocity from [m/s] to [pix/s] first
-        'min_size_reg' : p['min_size_reg'],
-        'width_border' : p['width_border'],
-        'd_mat_fn' : improc.bubble_d_mat,
-        'd_mat_kwargs' : {'axis' : p['flow_dir'], 'v_max' : v_max, 'row_lo' : row_lo, 
-                          'row_hi' : row_hi, 'fps' : p['fps']}                            
+        'fps' : p['fps'],
     }
+    # additional variables required for method used to assign labels to objects
+    assign_kwargs = {
+        'fps' : p['fps'],  # extracts fps from video filepath
+        'd_fn' : improc.bubble_distance_v,
+        'd_fn_kwargs' : d_fn_kwargs,
+        'width_border' : p['width_border'],
+        'min_size_reg' : p['min_size_reg'],
+        'row_lo' : row_lo,
+        'row_hi' : row_hi,
+        'remember_objects' : False, # TODO -- make this a parameter that can be changed by user
+        'object_kwargs' : {'flow_dir' : flow_dir, 'pix_per_um' : pix_per_um},
+    } 
+
 
     # parallelized C++ tracking (fast)
     # number of frames analyzed
@@ -1045,8 +1054,8 @@ def process_video(p, replace=False, use_prev_bkgd=False,
     # starts timer
     start_time = time.time()
     # tracks bubbles
-    bubbles, frame_IDs = improc.track_bubble(improc.track_bubble_cvvidproc,
-        track_kwargs, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
+    bubbles, frame_IDs = improc.track_object(improc.track_object_cvvidproc,
+        track_kwargs, highlight_kwargs, assign_kwargs, ret_IDs=True)
     # stops timer
     time_cv = time.time()-start_time
     
@@ -1067,8 +1076,8 @@ def process_video(p, replace=False, use_prev_bkgd=False,
         # starts timer
         start_time = time.time()
         # tracks bubbles
-        _ = improc.track_bubble(improc.track_bubble_py,
-            track_kwargs_py, highlight_kwargs, assignbubbles_kwargs, ret_IDs=True)
+        _ = improc.track_object(improc.track_object_py,
+            track_kwargs_py, highlight_kwargs, assignobjects_kwargs, ret_IDs=True)
         # stops timer
         time_py = time.time()-start_time
           
@@ -1091,22 +1100,20 @@ def process_video(p, replace=False, use_prev_bkgd=False,
         bubble = bubbles[ID]
         # computes average speed [m/s]
         bubble.proc_props()
-        # compares average speed to cutoff [m/s]
-        bubble.classify(v_inner)
 
     ########################## 4) SAVE RESULTS #################################
     print('Saving results...')
     # stores metadata (I will not store video parameters or parameters from the
     # input file since they are stored elsewhere already)
-    metadata = {'input name' : p['input_name'], 'bkgd' : bkgd, 'flow dir' : p['flow_dir'],
-                'mask data' : mask_data, 'row lo' : row_lo, 'row hi' : row_hi,
+    metadata = {'input_name' : p['input_name'], 'bkgd' : bkgd, 'flow_dir' : p['flow_dir'],
+                'mask_data' : mask_data, 'row_lo' : row_lo, 'row_hi' : row_hi,
                 'dp' : dp, 'R_i' : R_i, 'v_max' : v_max, 'v_inner' : v_inner,
-                'args' : highlight_kwargs, 'frame IDs' : frame_IDs,
-                'pix_per_um' : pix_per_um, 'input params' : p}
+                'args' : highlight_kwargs, 'frame_IDs' : frame_IDs,
+                'pix_per_um' : pix_per_um, 'input_params' : p}
 
     # stores data
     data = {}
-    data['bubbles'] = bubbles
+    data['objects'] = bubbles
     data['frame IDs'] = frame_IDs
     data['metadata'] = metadata
 
@@ -1128,7 +1135,7 @@ def process_video(p, replace=False, use_prev_bkgd=False,
     return bubbles, frame_IDs
 
 
-def highlight_obj(p, skip_blanks=True, ext='jpg', color_bubble=True, 
+def highlight_obj(p, skip_blanks=True, ext='jpg', color_object=True, 
                   brightness=1.0, offset=5, quiet=True):
     """
     Based on highlight.py in bubbletracking_koe/analysis. Saves frames with
@@ -1140,8 +1147,8 @@ def highlight_obj(p, skip_blanks=True, ext='jpg', color_bubble=True,
         If True, does not process or save frames without any objects in them
     ext : string, opt (default='jpg')
         Extension for image files--excludes '.'
-    color_bubble : bool, opt (default=True)
-        If True, shades in region segmented to belong to a bubble/object
+    color_object : bool, opt (default=True)
+        If True, shades in region segmented to belong to a object
     brightness : float, opt (default=1.0)
         Factor by which to scale original brightness of video
     offset : int, opt (default=5)
@@ -1164,7 +1171,7 @@ def highlight_obj(p, skip_blanks=True, ext='jpg', color_bubble=True,
         with open(data_path, 'rb') as f:
             data = pkl.load(f)
             metadata = data['metadata']
-            bubbles = data['bubbles']
+            bubbles = data['objects']
             frame_IDs = data['frame IDs']
     except:
         print('No file at specified data path {0:s}.'.format(data_path))
@@ -1213,7 +1220,7 @@ def highlight_obj(p, skip_blanks=True, ext='jpg', color_bubble=True,
         # brightens original image
         frame_adj = basic.adjust_brightness(frame, brightness)
         # colors in bubbles according to label (not consistent frame-to-frame)
-        if color_bubble:
+        if color_object:
             frame_disp = fn.one_2_uint8(skimage.color.label2rgb(frame_relabeled,
                                                 image=frame_adj, bg_label=0))
         else:
