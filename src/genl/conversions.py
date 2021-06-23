@@ -9,7 +9,12 @@ uL_2_mL = 1E-3
 min_2_s = 60
 s_2_min = 1/60
 uLmin_2_m3s = 1/60E9
-pix_per_um_chronos = {4 : 1.34, # measured based on reference dot for 4x objective
-                10 : 3.54} # see get_pixel_width_from_calibration_slide.py
-pix_per_um_photron = {4: 1/2.29, 
-                10 : 1.09}
+
+# conversion from pixels to microns (camera and magnification-dependent)
+pix_per_um = {'chronos' : 
+                {4 : 1.34, # measured based on reference dot for 4x objective
+                10 : 3.54}, # see get_pixel_width_from_calibration_slide.py
+            'photron' :
+                {4: 1/2.29, 
+                10 : 1.09},
+}

@@ -19,8 +19,7 @@ th_hi = 39 # high threshold value for hysteresis thresholding
 min_size_hyst = 2 # minimum size of object kept after hysteresis thresholding
 min_size_th = 2 # minimum size of object kept after standard thresholding
 min_size_reg = 2 # minimum size of object to be registered as a bubble
-highlight_method = highlight_obj_hyst_thresh # method from improc for bubbles
-photron = True # True if using Photron NOVA S6, False if using Chronos 1.4
+camera = photron # photron if using Photron NOVA S6, chronos if using Chronos 1.4
 
 ############################# FILE PARAMETERS ##################################
 ### DON'T WRITE STRINGS WITH APOSTROPHES '' THEY WILL AUTOMATICALLY BE ADDED ###
