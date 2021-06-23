@@ -196,7 +196,7 @@ def get_dp_R_i_v_max(eta_i, eta_o, L, Q_i, Q_o, R_o, SI=False):
 
     # converts parameters to other units if SI not desired
     if not SI:
-        dp /= 1E5 # converts from Pa to bar
+        dp *= conv.Pa_2_bar # converts from Pa to bar
         R_i *= 1E6 # converts from m to um
         v_max *= 1E3 # converts from m/s to mm/s
 
@@ -435,7 +435,7 @@ def get_inner_stream_radius(Q_i, Q_o, r_obs_cap=250):
     r_inner_stream = r_obs_cap*np.sqrt(1 - np.sqrt(Q_o/(Q_i + Q_o)))
 
     return r_inner_stream
-    
+
 
 def p_pois(eta, L, R, Q):
     """
@@ -454,21 +454,17 @@ def p_pois(eta, L, R, Q):
     return 8*eta*L/(np.pi*R**4)*Q
 
 
-def v_inner(Q_i, Q_o, eta_i, eta_o, R_o, L):
+def v_interf(Q_i, Q_o, eta_i, eta_o, R_o, L):
     """
     Computes the velocity at the interface between inner and outer streams.
     Assumes SI units.
 
     Parameters
     ----------
-    Q_i : float
-        Inner stream flow rate [m^3/s]
-    Q_o : float
-        Outer stream flow rate [m^3/s]
-    eta_i : float
-        Inner stream viscosity [Pa.s]
-    eta_o : float
-        Outer stream viscosity [Pa.s]
+    Q_i, Q_o : float
+        Inner and outer stream flow rates [m^3/s]
+    eta_i, eta_o : float
+        Inner and outer stream viscosities [Pa.s]
     R_o : float
         Outer stream radius (radius of capillary) [m]
     L : float
@@ -476,12 +472,12 @@ def v_inner(Q_i, Q_o, eta_i, eta_o, R_o, L):
 
     Returns
     -------
-    v_inner : float
+    v_interf : float
         Velocity at the interface of the inner stream [m/s]
     """
     # computes pressure drop and inner stream radius
     dp, R_i, _ = get_dp_R_i_v_max(eta_i, eta_o, L, Q_i, Q_o, R_o, SI=True)
     G = -dp/L # pressure gradient [Pa/m]
-    v_inner = G*(R_o**2 - R_i**2) / (4*eta_o) # eqn A.10 p. 35 of YlitaloA_candidacy_report.pdf
+    v_interf = G*(R_o**2 - R_i**2) / (4*eta_o) # eqn A.10 p. 35 of YlitaloA_candidacy_report.pdf
 
-    return v_inner
+    return v_interf

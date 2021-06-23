@@ -221,11 +221,11 @@ class Bubble(TrackedObject):
 
        
     ###### MUTATORS ########
-    def classify(self, v_inner):
+    def classify(self, v_interf):
         """
         Classifies bubble as inner or outer stream based on velocity cutoff.
         N.B.: If there is no inner stream (inner stream flow rate Q_i = 0),
-        then the velocity v_inner will be computed to be nan, in which case this
+        then the velocity v_interf will be computed to be nan, in which case this
         method will leave the classification as is.
         """
         # counts number of frames in which bubble appears
@@ -248,11 +248,11 @@ class Bubble(TrackedObject):
             # probably an error
             else:
                 inner = -1
-        elif 0 < v and v < v_inner and n_frames > 1:
+        elif 0 < v and v < v_interf and n_frames > 1:
             inner = 0
         # if velocity is faster than lower limit for inner stream, classify as
         # inner stream
-        elif (v >= v_inner) or (n_frames == 1):
+        elif (v >= v_interf) or (n_frames == 1):
             inner = 1
         # otherwise, default value of -1 is set to indicate unclear classification
         else:
@@ -307,9 +307,6 @@ class Bubble(TrackedObject):
         v_m_s = [v/pix_per_um*um_2_m for v in self.proc_props['speed']]
         self.props_proc['speed [m/s]'] = v_m_s
         self.props_proc['average speed [m/s]'] = np.mean(v_m_s)
-
-        # classifies bubble (sets `inner_stream` parameter)
-        self.classify()
 
 
     ### HELPER FUNCTIONS ###
