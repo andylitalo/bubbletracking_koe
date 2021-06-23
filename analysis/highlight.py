@@ -46,6 +46,8 @@ def parse_args():
     ap.add_argument('-c', '--color_object', default=1,
                     help='If 1, objects will be colored in figure.')
     ap.add_argument('--offset', default=5, type=int, help='Offset of labels to the right.')
+    ap.add_argument('-q', '--quiet', default=False, type=bool,
+                    help='If True, will not print out success report upon saving image.')
     args = vars(ap.parse_args())
 
     return args
@@ -130,9 +132,11 @@ def label_objects_in_frame(objects, IDs, f, frame_labeled):
 
 ################################## PRIMARY FUNCTIONS ###################################
 
-def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
-                             brightness, ext, color_object, offset,
-                             std_color, border_color, error_color):
+def highlight_and_save_image(image, f, highlight_method,
+                            metadata, objects, IDs, save_dir,
+                            brightness=3.0, ext='jpg', color_object=True,
+                            offset=5, std_color=(255,255,255), 
+                            border_color=(0,0,0), error_color=(255,0,0)):
     """
     Highlights and labels objects within given image, then saves.
     
@@ -147,8 +151,10 @@ def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
     objects : dictionary
         Dictionary of tracked objects, indexed by ID #
         See TrackedObject class in `classes/classes.py` for more details
-    frame_IDs : dictionary
-        Dictionary indexed by frame number of the ID #s of objects in that frame
+    IDs : list
+        List of the ID #s of objects in the present frame
+    save_dir : string
+        Directory in which to save the image
     brightness : float, opt (default=3.0)
         Factor by which to scale brightness of images
     ext : string, opt (default='jpg')
@@ -176,15 +182,14 @@ def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
 
     # highlights object according to parameters from data file
     bkgd = metadata['bkgd']
-    obj = p['highlight_method'](val, bkgd, **metadata['args'])
+    highlighted = highlight_method(val, bkgd, **metadata['args'])
     # applies highlights
-    frame_labeled, num_labels = skimage.measure.label(obj, return_num=True)
+    frame_labeled, num_labels = skimage.measure.label(highlighted, return_num=True)
     # OpenCV version--less convenient
     #num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(obj)
 
     # labels objects in frame
-    frame_relabeled = label_objects_in_frame(objects, frame_IDs[f], 
-                                                f, frame_labeled)
+    frame_relabeled = label_objects_in_frame(objects, IDs, f, frame_labeled)
     
     # brightens original image
     frame_adj = basic.adjust_brightness(frame, brightness)
@@ -198,9 +203,11 @@ def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
     # prints ID number of object to the upper-right of the centroid
     # this must be done after image is colored
     for ID in IDs:
+        # grabs object with present ID
+        obj = objects[ID]
 
         # determines color of the label
-        color = determine_label_color(objects[ID], f, std_color, 
+        color = determine_label_color(obj, f, std_color, 
                                 border_color, error_color)
 
         # shows number ID of object in image
@@ -218,10 +225,7 @@ def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
 
     # saves image
     im = PIL.Image.fromarray(frame_disp)
-    im.save(os.path.join(figs_dir, '{0:d}.{1:s}'.format(f, ext)))
-
-    print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
-                                            p['start'], p['every'], p['end']))
+    im.save(os.path.join(save_dir, '{0:d}.{1:s}'.format(f, ext)))
 
     return
 
@@ -229,7 +233,7 @@ def highlight_and_save_image(image, f, metadata, objects, frame_IDs,
 def highlight_and_save_tracked_video(input_file, input_dir, output_dir, 
                             data_subdir, figs_subdir, skip_blanks=True,
                             brightness=3.0, ext='jpg', color_object=True,
-                            offset=5, std_color=(255,255,255), 
+                            offset=5, quiet=False, std_color=(255,255,255), 
                             border_color=(0,0,0), error_color=(255,0,0)):
     """
     Highlights objects in the video specified in the input file using data
@@ -300,16 +304,24 @@ def highlight_and_save_tracked_video(input_file, input_dir, output_dir,
     # loops through frames of video with objects according to data file
     for f in range(p['start'], p['end'], p['every']):
 
+        # extracts IDs of objects in the present frame
+        IDs = frame_IDs[f]
         # skips frame upon request if no objects identified in frame
-        if len(frame_IDs[f]) == 0 and skip_blanks:
+        if len(IDs) == 0 and skip_blanks:
             continue
 
         # loads frame
         frame = basic.read_frame(cap, f)
         # highlights and saves frame
-        highlight_and_save_image(frame, f, metadata, objects, frame_IDs,
-                             brightness, ext, color_object, offset,
-                             std_color, border_color, error_color)
+        highlight_and_save_image(frame, f, p['highlight_method'],
+                                metadata, objects, IDs, figs_dir,
+                                brightness, ext, color_object, offset,
+                                std_color, border_color, error_color)
+            
+        # prints out success
+        if not quiet:
+            print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
+                                            p['start'], p['every'], p['end']))
 
     return 
 
@@ -324,11 +336,12 @@ def main():
     input_file = args['input_file']
     color_object = args['color_object']
     offset = args['offset']
+    quiet = args['quiet']
 
     highlight_and_save_tracked_video(input_file, cfg.input_dir, cfg.output_dir, 
                             cfg.data_subdir, cfg.figs_subdir, 
-                            skip_blanks=skipe_blanks, brightness=brightness, 
-                            ext=ext, color_object=color_object, offset=offset, 
+                            skip_blanks=skip_blanks, brightness=brightness, 
+                            ext=ext, color_object=color_object, offset=offset, quiet=quiet,
                             std_color=cfg.white, border_color=cfg.black, error_color=cfg.red)
 
     return
