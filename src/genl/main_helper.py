@@ -185,7 +185,8 @@ def get_flow_props(vid_path, p):
     R_i : float
         Predicted inner stream radius [m]
     v_max, v_interf : float
-        Predicted velocities at the center and at the interface of the inner stream
+        Predicted velocities at the center and at the interface of the 
+        inner stream [m/s]
     Q_i, Q_o : float
         Inner and outer stream flow rates [m^3/s]
     pix_per_um : float
