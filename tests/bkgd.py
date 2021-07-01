@@ -32,7 +32,7 @@ cv2.destroyAllWindows()
 cap.release()
 
 # test 2: computes background from video and shows result
-bkgd = improc.compute_bkgd_med_thread(vid_path, True, num_frames=1000, max_threads=12)
+bkgd = improc.compute_bkgd_med_thread(vid_path, num_frames=1000, max_threads=12)
 cv2.imshow('Background -- click spacebar', bkgd)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

@@ -1,4 +1,4 @@
-Results of compare_props_finders.py
+Results of run_opencv_tests.py
 
 TEST 0: Remove Small Objects
 January 29, 2021:

@@ -338,7 +338,16 @@ def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
     return bkgd_mean
 
 
-def compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=100, 
+def compute_bkgd_med(vid_path, vid_is_grayscale=True, num_frames=100, 
+			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
+			max_threads=-1):
+    """Alias for `compute_bkgd_med_thread` since I haven't programmed an unthreaded version."""
+    return  compute_bkgd_med_thread(vid_path, vid_is_grayscale, num_frames=num_frames, 
+			crop_x=crop_x, crop_y=crop_y, crop_width=crop_width, crop_height=crop_height,
+			max_threads=max_threads)
+
+
+def compute_bkgd_med_thread(vid_path, vid_is_grayscale=True, num_frames=100, 
 			crop_x=0, crop_y=0, crop_width=0, crop_height=0,
 			max_threads=-1):
     """
@@ -538,38 +547,6 @@ def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
                 small_obj_rm, highlighted_objects
     else:
         return highlighted_objects
-    
-    
-def highlight_obj_hyst(frame, bkgd, th_lo, th_hi, width_border, selem,
-                          min_size, ret_all_steps=False):
-    """
-    Version of highlight_obj() that uses a hysteresis filter.
-    """
-    assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_obj_hyst() only accepts 2D frames.'
-    assert th_lo < th_hi, \
-        'In improc.highlight_objects_hyst(), low threshold must be lower.'
-
-    # subtracts reference image from current image (value channel)
-    im_diff = cv2.absdiff(bkgd, frame)
-    # thresholds image to become black-and-white
-    # thresh_bw = skimage.filters.apply_hysteresis_threshold(\
-                        # im_diff, th_lo, th_hi)
-    thresh_bw = hysteresis_threshold(im_diff, th_lo, th_hi)
-
-    # smooths out thresholded image
-    closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
-    # removes small objects
-    obj_bw = remove_small_objects(closed_bw, min_size)
-    # fills in holes, including those that might be cut off at border
-    obj = frame_and_fill(obj_part_bw, width_border)
-
-    # returns intermediate steps if requeseted.
-    if ret_all_steps:
-        return im_diff, thresh_bw, closed_bw, obj_bw, \
-                obj
-    else:
-        return obj
 
 
 def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
@@ -589,10 +566,13 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     assert th_lo < th_hi, \
         'In improc.highlight_objects_hyst_thresh(), low threshold must be lower.'
 
-    # # masks inputs--TODO needs row_lo and row_hi to crop mask to same size as images
-    # if mask_data is not None:
-    #     frame = mask.mask_image(frame, mask_data['mask'])
-    #     bkgd = mask.mask_image(bkgd, mask_data['mask'])
+    # masks inputs
+    if mask_data is not None:
+        # computes minimum and maximum rows for object tracking computation
+        row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
+        # crops mask to same size as images and applies it
+        frame = mask.mask_image(frame, mask_data['mask'][row_lo:row_hi, :])
+        bkgd = mask.mask_image(bkgd, mask_data['mask'][row_lo:row_hi, :])
         
     # subtracts reference image from current image (value channel)
     im_diff = cv2.absdiff(bkgd, frame)
@@ -630,34 +610,6 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     if ret_all_steps:
         return im_diff, thresh_bw_1, obj_1, thresh_bw_2, \
                 obj_2, obj
-    else:
-        return obj
-
-
-def highlight_obj_thresh(frame, bkgd, thresh, width_border, selem, min_size,
-                     ret_all_steps=False):
-    """
-    Highlights objects (regions of different brightness) with white and
-    turns background black. Ignores edges of the frame.
-    Only accepts 2D frames.
-    """
-    assert (len(frame.shape) == 2) and (len(bkgd.shape) == 2), \
-        'improc.highlight_obj() only accepts 2D frames.'
-
-    # subtracts reference image from current image (value channel)
-    im_diff = cv2.absdiff(bkgd, frame)
-    # thresholds image to become black-and-white
-    thresh_bw = thresh_im(im_diff, thresh)
-    # smooths out thresholded image
-    closed_bw = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
-    # removes small objects
-    obj_bw = remove_small_objects(closed_bw, min_size)
-    # fills in holes, including those that might be cut off at border
-    obj = frame_and_fill(obj_part_filled, width_border)
-
-    # returns intermediate steps if requested.
-    if ret_all_steps:
-        return im_diff, thresh_bw, closed_bw, obj_bw, obj
     else:
         return obj
 
@@ -947,7 +899,7 @@ def remove_small_objects_find(im, min_size):
     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
 
     Appears to be faster than with connectedComponentsWithStats (see
-    compare_props_finders.py).
+    run_opencv_tests.py).
 
     Based on response from nathancy @
     https://stackoverflow.com/questions/60033274/how-to-remove-small-object-in-image-with-python
@@ -973,7 +925,7 @@ def remove_small_objects_connected(im, min_size):
     Uses OpenCV to replicate `skimage.morphology.remove_small_objects`.
     Uses cv2.connectedComponentsWithStats instead of cv2.findContours.
 
-    Appears to be slower than with findContours (see compare_props_finders.py).
+    Appears to be slower than with findContours (see run_opencv_tests.py).
 
     Parameters
     ----------
