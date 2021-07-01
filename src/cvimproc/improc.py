@@ -284,7 +284,7 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi,
     c2 = np.array(bubble2['centroid'])
     diff = c2 - c1
     # computes components on and off axis
-    comp, d_off_axis = geo.calc_comps(diff, axis)
+    comp, off_axis = geo.calc_comps(diff, axis)
     
 
     # computes average distance off central flow axis [pix]
@@ -307,7 +307,7 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi,
 
     # adds huge penalty if second bubble is upstream of first bubble and a
     # moderate penalty if it is off the axis or far from expected position
-    d = alpha*d_off_axis + beta*np.abs((comp - comp_expected)/comp_expected) + \
+    d = alpha*off_axis + beta*np.abs((comp - comp_expected)/comp_expected) + \
         upstream_penalty*(comp < min_travel)
 
     return d
@@ -394,12 +394,12 @@ def compute_bkgd_med_thread(vid_path, vid_is_grayscale=True, num_frames=100,
 
 def d_euclid_bw_obj(obj1, obj2):
     """
-    Computes the distance between each pair of points in the two sets
-    perpendicular to the axis using the Euclidean distance (L2-norm).
+    Computes the distance between the centroids of the given objects
+    using the Euclidean distance (L2-norm).
     
     Parameters
     ----------
-    obj1, obj2 : dictionaryies
+    obj1, obj2 : dictionary
         Dictionaries of object properties containing 'centroid'
         
     Returns
@@ -418,6 +418,37 @@ def d_euclid_bw_obj(obj1, obj2):
     return d
 
 
+def d_off_flow(obj1, obj2, flow_dir, penalty=1E10):
+    """
+    Computes the component of the distance between the two objects 
+    perpendicular to the axis.
+
+    Parameters
+    ----------
+    obj1, obj2 : dictionary
+        Dictionaries of object properties containing 'centroid'
+    flow_dir : 2-tuple of floats
+        Axis along which we expect motion (off-axis motion is lightly 
+        penalized and upstream motion is harshly penalized).
+        Format is (row, col)
+
+    Returns
+    -------
+    d : float
+        Distance between the centroids of object 1 and object 2
+    """
+    # extracts centroids of the two objects in (row, col) format [pixels]
+    c1 = np.array(obj1['centroid'])
+    c2 = np.array(obj2['centroid'])
+    diff = c2 - c1
+    # computes components on and off axis
+    comp, off_axis = geo.calc_comps(diff, flow_dir)
+
+    # adds penalty if object is "upstream"
+    d = off_axis + penalty*(comp < 0)
+
+    return d
+   
 
 def find_label(frame_labeled, rc, cc):
     """
@@ -455,7 +486,7 @@ def find_label(frame_labeled, rc, cc):
             return label
 
     # failed to find non-zero label--returns -1 to indicate failure
-    return -1
+    return -1   
 
 
 def frame_and_fill(im, w=2):
@@ -559,7 +590,7 @@ def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
 
 def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
                                  min_size_th, width_border, selem, mask_data,
-                                 ret_all_steps=False):
+                                 ret_all_steps=False, only_dark_obj=True):
     """
     Version of highlight_obj() that first performs a low threshold and
     high minimum size to get faint, large objects, and then performs a higher
@@ -586,7 +617,8 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     im_diff = cv2.absdiff(bkgd, frame)
     # based on assumption that objects are darker than bkgd, ignore all 
     # pixels that are brighter than the background by setting to zero
-    im_diff[frame > bkgd] = 0
+    if only_dark_obj:
+        im_diff[frame > bkgd] = 0
 
     ##################### THRESHOLD AND HIGH MIN SIZE #########################
     # thresholds image to become black-and-white
@@ -854,8 +886,11 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
 
         # computes number of pixels in object (area)
         #https://docs.opencv.org/master/d1/d32/tutorial_py_contour_properties.html
+        # Deeper discussion of cv2.drawContours here:
+        #https://learnopencv.com/contour-detection-using-opencv-python-c/
         mask = np.zeros(bw_frame.shape, np.uint8)
-        cv2.drawContours(mask, [cnt], 0, 255, -1)
+        cv2.drawContours(image=mask, contours=[cnt], contourIdx=0, 
+                            color=255, thickness=-1)
         # records length of list of nonzero pixels
         # TODO -- VALIDATE! Doesn't seem to work properly for counting pixels
         num_pixels = len(cv2.findNonZero(mask))
@@ -903,7 +938,7 @@ def remove_small_objects(im, min_size):
     Removes small objects in an image.
     Uses the findContours version because the tests suggest that it is faster.
     """
-    return remove_small_objects_find(im, min_size)
+    return remove_small_objects_connected(im, min_size)
 
 
 def remove_small_objects_find(im, min_size):

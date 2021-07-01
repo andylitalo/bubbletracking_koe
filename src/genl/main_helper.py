@@ -240,6 +240,10 @@ def get_mask(vid_path, check=True):
     """
     # loads mask data; user creates new mask by clicking if none available
     first_frame, _ = basic.load_frame(vid_path, 0)
+
+    print(vid_path)
+
+
     flow_dir, mask_data = ui.click_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
     # computes minimum and maximum rows for object tracking computation
@@ -273,7 +277,7 @@ def get_paths(p, replace):
 
     # defines filepath to video
     vid_path = os.path.join(cfg.input_dir, p['vid_subdir'], p['vid_name'])
-
+    
     # checks that video has the requested frames
     # subtracts 1 since "end" gives an exclusive upper bound [start, end)
     if not basic.check_frames(vid_path, p['end']-1):

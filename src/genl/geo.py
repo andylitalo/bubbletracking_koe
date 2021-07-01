@@ -28,7 +28,7 @@ def calc_comps(vec, axis):
     -------
     comp : float
         component along the given axis
-    d_off_axis : float
+    off_axis : float
         Distance of vector off given axis.
 
     """
@@ -36,9 +36,9 @@ def calc_comps(vec, axis):
     comp = np.dot(vec, axis)
     # computes projection along flow axis
     proj =  comp*axis
-    d_off_axis = np.linalg.norm(vec - proj)
+    off_axis = np.linalg.norm(vec - proj)
     
-    return comp, d_off_axis
+    return comp, off_axis
     
     
 def fit_circle(rows, cols, center_estimate=(0,0)):
