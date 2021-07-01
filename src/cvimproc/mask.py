@@ -121,8 +121,8 @@ def mask_image(image, mask):
     im_masked = np.zeros_like(image)
     if len(image.shape) == 3:
         for i in range(3):
-            im_masked[:,:,i] = mask*image[:,:,i]
+            im_masked[:,:,i] = np.where(mask, image[:,:,i], 0)
     else:
-        im_masked = image*mask
+        im_masked = np.where(mask, image, 0)
 
     return im_masked
