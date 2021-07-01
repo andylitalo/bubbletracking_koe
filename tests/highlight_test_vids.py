@@ -57,7 +57,7 @@ def parse_args():
 
     return args
 
-# TODO add option to save image with dimensions on tick marks
+# TODO add option to save image with dimensions on the tick marks
 
 def main():
     # parses user-supplied information to identify data file for desired experiment
