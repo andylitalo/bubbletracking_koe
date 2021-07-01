@@ -31,7 +31,7 @@ import config as cfg
 
 def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi, 
                     v_max, v_interf, pix_per_um, remember_objects=False,
-                    ObjectClass=Bubble, object_kwargs={}):
+                    ellipse=True, ObjectClass=Bubble, object_kwargs={}):
     """
     Collects keyword arguments for CvVidProc's object-tracking algorithm.
     See API for CvVidProc library on UkoeHB's github for more details.
@@ -61,6 +61,9 @@ def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi,
         are lost in tracking until they are extrapolated off screen or found
         again
         ***This option is still buggy so I'm leaving it False***
+    ellipse : bool, optional
+        If True, region_props will fit an ellipse to the object to compute
+            major axis, minor axis, and orientation (default True)
     ObjectClass : class, opt (default=Bubble)
         Class of objects to track (TrackedObject is most general, but
         we will use Bubble since this analysis is specific to bubbles in 
@@ -114,6 +117,7 @@ def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi,
         'row_lo' : row_lo,
         'row_hi' : row_hi,
         'remember_objects' : remember_objects,
+        'ellipse' : ellipse,
         'ObjectClass' : ObjectClass,
         'object_kwargs' : object_kwargs,
     }               

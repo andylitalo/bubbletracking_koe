@@ -75,23 +75,29 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     next_ID : int
         Next ID number to be assigned (increasing order)
     kwargs : dictionary
-        flow_dir : numpy array of 2 floats
-            Unit vector indicating the flow direction. Should be in (row, col).
         fps : float
             Frames per second of video
-        pix_per_um : float
-            Conversion of pixels per micron (um)
+        d_fn : functor
+            Function for computing the distance between centroids of objects
+        d_fn_kwargs : dictionary
+            Dictionary of keyword arguments for `d_fn`. The keyword arguments 
+            are all those that follow after `object1` and `object2` (the first
+            two arguments--they may go by different names)
         width_border : int
-            Number of pixels to remove from border for image processing in
-            ee()
+            Number of pixels around perimeter that count as "the border" of the
+            image. Used in `frame_and_fill`.
+        min_size_reg : int
+            Minimum number of pixels an object must have to be registered
         row_lo : int
             Row of lower inner wall--currently not implemented
         row_hi : int
             Row of upper inner wall--currently not implemented
-        v_max : float
-            Maximum velocity expected due to Poiseuille flow [pix/s]
-        min_size_reg : int
-            Objects must have a greater area than this threshold to be registered.
+        remember_objects : bool
+            If True, code will predict centroid location after an object 
+            disappears using its previous velocity
+        ellipse : bool
+            If True, region_props will fit an ellipse to the object to compute
+            major axis, minor axis, and orientation
         ObjectClass : class
             Class in which to instantiate objects
         object_kwargs : dictionary
@@ -118,13 +124,15 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     row_lo = kwargs['row_lo']
     row_hi = kwargs['row_hi']
     remember_objects = kwargs['remember_objects']
+    ellipse = kwargs['ellipse']
     ObjectClass = kwargs['ObjectClass']
     object_kwargs = kwargs['object_kwargs']
 
     # computes frame dimesions
     frame_dim = bw_frame.shape
     # measures region props of each object in image
-    objects_curr = region_props(bw_frame, n_frame=f, width_border=width_border)
+    objects_curr = region_props(bw_frame, n_frame=f, 
+                            width_border=width_border, ellipse=ellipse)
 
     # if no objects seen in previous frame, assigns objects in current frame
     # to new IDs
@@ -766,18 +774,21 @@ def out_of_bounds(pt, shape):
         return True
 
 
-def region_props(bw_frame, n_frame=-1, width_border=5):
+def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False):
     """
     Computes properties of objects in a binarized image using OpenCV.
     """
     bw_frame = basic.cvify(bw_frame)
-    return region_props_connected(bw_frame, n_frame=n_frame, width_border=width_border)
+    return region_props_find(bw_frame, n_frame=n_frame, 
+                    width_border=width_border, ellipse=ellipse)
 
 
 def region_props_connected(bw_frame, n_frame=-1, width_border=5):
     """
     Computes properties of objects in a binarized image that would otherwise be
     provided by region_props using an OpenCV hack.
+
+    SLOW compared to region_props_find (see `tests/results.txt`)
 
     This version is based on connectedComponentsWithStats.
     """
@@ -815,6 +826,8 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
     """
     Computes properties of objects in a binarized image that would otherwise be
     provided by region_props using an OpenCV hack.
+    
+    FAST compared to region_props_connected (see `tests/results.txt`)
 
     This version is based on findContours.
     """
