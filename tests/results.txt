@@ -14,3 +14,20 @@ Computing region props took 13.233 ms with connectedComponentsWithStats.
 axes) using connectedComponentsWithStats, so there's a tradeoff between time and
 functionality. Because the difference in execution time is small (~15%), I will
 go with the improved functionality of findContours for now.
+
+REPEAT WITH A NEW FILE:
+`sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10.mp4`
+
+July 1, 2021
+
+TEST 0: Remove Small Objects
+remove_small_objects took 0.026 ms with findContours on average over 11089 iterations.
+remove_small_objects took 0.207 ms with connectedComponentsWithStats over 11089 iterations.
+
+TEST 1: Compute Region Props
+Computing region props took 0.019 ms with findContours over 11089 iterations.
+Computing region props took 0.101 ms with connectedComponentsWithStats over 11089 iterations.
+
+CONCLUSION: `findContours` is much faster. Combined with improved functionality (can fit ellipse 
+and use it to compute major axis, minor axis, and orientation), it is the superior.
+
