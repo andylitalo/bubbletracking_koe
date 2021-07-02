@@ -10,6 +10,7 @@ Date: January 28, 2021
 
 import cv2
 import numpy as np
+import PIL.Image
 
 # imports custom libraries
 import genl.fn as fn
@@ -346,6 +347,26 @@ def rotate_image(im,angle,center=[],crop=False,size=None):
         im = im[min(x):max(x),min(y):max(y)]
 
     return im
+
+
+def save_image(im, save_path):
+    """
+    Saves image with Python Imaging Library (PIL).
+
+    Parameters
+    ----------
+    im : numpy array of uint8
+        Image to save 
+    save_path : string 
+        Path to save image to
+
+    Returns nothing.
+    """
+     # saves image
+    im_obj = PIL.Image.fromarray(im)
+    im_obj.save(save_path)
+
+    return 
 
 
 def scale_by_brightfield(im, bf):

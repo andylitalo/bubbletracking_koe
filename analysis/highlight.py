@@ -18,7 +18,6 @@ import argparse
 # 3rd party image-processing libraries
 import skimage.measure
 import skimage.color
-import PIL.Image
 
 # custom libraries
 import sys
@@ -27,6 +26,7 @@ import cvimproc.basic as basic
 import cvimproc.improc as improc
 import genl.fn as fn
 import genl.readin as readin
+import genl.main_helper as mh
 
 # imports configuration file
 import config as cfg
@@ -54,14 +54,16 @@ def parse_args():
 
 
 ###################### HELPER FUNCTIONS #################################
-def determine_label_color(obj, f, std_color, border_color, error_color):
+def bubble_label_color(bubble, f, std_color=cfg.white, 
+                        border_color=cfg.black, error_color=cfg.red):
     """
-    Determines the color of the label to be printed on the image.
+    Determines the color of the label to be printed on the image 
+    for a Bubble object.
 
     Parameters
     ----------
-    obj : TrackedObject
-        Object to be labeled in image
+    bubble : Bubble
+        Bubble object to be labeled in image (has "inner_stream" property)
     f : int
         Frame number in video
     std_color, border_color, error_color : 3-tuple of uint8s, opt (default white, black, red)
@@ -74,9 +76,9 @@ def determine_label_color(obj, f, std_color, border_color, error_color):
         Color of label (RGB)
     """
     # text of number ID is black if on the border of the image, white o/w
-    on_border = obj.get_prop('on border', f)
-    outer_stream = obj.get_props('inner stream') == 0
-    error = obj.get_props('inner stream') == -1
+    on_border = bubble.get_prop('on border', f)
+    outer_stream = bubble.get_props('inner stream') == 0
+    error = bubble.get_props('inner stream') == -1
     if on_border or outer_stream:
         color = border_color
     elif not error:
@@ -132,11 +134,9 @@ def label_objects_in_frame(objects, IDs, f, frame_labeled):
 
 ################################## PRIMARY FUNCTIONS ###################################
 
-def highlight_and_save_image(image, f, highlight_method,
-                            metadata, objects, IDs, save_dir,
-                            brightness=3.0, ext='jpg', color_object=True,
-                            offset=5, std_color=(255,255,255), 
-                            border_color=(0,0,0), error_color=(255,0,0)):
+def highlight_image(image, f, highlight_method, metadata, objects, IDs,
+                    brightness=3.0, color_object=True, offset=5,
+                    label_color_method=bubble_label_color, label_kwargs={}):
     """
     Highlights and labels objects within given image, then saves.
     
@@ -157,20 +157,17 @@ def highlight_and_save_image(image, f, highlight_method,
         Directory in which to save the image
     brightness : float, opt (default=3.0)
         Factor by which to scale brightness of images
-    ext : string, opt (default='jpg')
-        Extension (excluding '.') for images that are saved.
-        Use extensions supported by the Python Imaging Library (PIL),
-        such as 'jpg', 'png', and 'tif'.
     color_object : bool, opt (default=True)
         If True, shades in objects over the original image in an 
         arbitrary color
     offset : int, opt (default=5)
         Number of pixels by which to offset label to the right of the 
         object's centroid
-    std_color, border_color, error_color : 3-tuple of uint8s, opt (default white, black, red)
-        Colors for labels of standard objects, objects on the border, and objects that
-        raised some kind of red flag or error
-
+    label_color_method : functor, optional
+        Method for determining color of label (default is `bubble_label_color`)
+    label_kwargs : dictionary, optional
+        Keyword arguments for label_color_method (besides object and frame number)
+        
     Returns nothing.
     """
     # crops frame
@@ -207,8 +204,7 @@ def highlight_and_save_image(image, f, highlight_method,
         obj = objects[ID]
 
         # determines color of the label
-        color = determine_label_color(obj, f, std_color, 
-                                border_color, error_color)
+        color = label_color_method(obj, f, **label_kwargs)
 
         # shows number ID of object in image
         centroid = obj.get_prop('centroid', f)
@@ -223,26 +219,23 @@ def highlight_and_save_image(image, f, highlight_method,
 
     # adds scale bar if desired--TODO
 
-    # saves image
-    im = PIL.Image.fromarray(frame_disp)
-    im.save(os.path.join(save_dir, '{0:d}.{1:s}'.format(f, ext)))
-
-    return
+    return frame_disp
 
 
-def highlight_and_save_tracked_video(input_file, input_dir, output_dir, 
+def highlight_and_save_tracked_video(p, input_dir, output_dir, 
                             data_subdir, figs_subdir, skip_blanks=True,
                             brightness=3.0, ext='jpg', color_object=True,
-                            offset=5, quiet=False, std_color=(255,255,255), 
-                            border_color=(0,0,0), error_color=(255,0,0)):
+                            offset=5, quiet=False, label_color_method=bubble_label_color,
+                            label_kwargs={}):
     """
     Highlights objects in the video specified in the input file using data
     from the object-tracking in `src/main.py`. Then saves images.
 
     Parameters
     ----------
-    input_file : string
-        Name of file with input parameters
+    p : dictionary
+        Parameters of analysis (typically loaded from `input.txt` file and read
+        by `readin.py`)
     input_dir : string
         Path to directory with input file
     output_dir : string
@@ -272,18 +265,13 @@ def highlight_and_save_tracked_video(input_file, input_dir, output_dir,
 
     Returns nothing.
     """
-    # loads data file and parameters from mask and input.txt files
-    p = readin.load_params(os.path.join(input_dir, input_file))
-    # defines filepath to video
-    vid_path = os.path.join(input_dir, p['vid_subdir'], p['vid_name'])
-    # defines directory to video data and figures
-    vid_dir = os.path.join(p['vid_subdir'], p['vid_name'][:-4], p['input_name'])
-    data_dir = os.path.join(output_dir, vid_dir, data_subdir)
-    figs_dir = os.path.join(output_dir, vid_dir, figs_subdir)
-
-    # defines name of data file to save
-    data_path = os.path.join(data_dir, 'f_{0:d}_{1:d}_{2:d}.pkl'.format(p['start'], 
-                                                    p['every'], p['end']))
+    # chooses end frame to be last frame if given as -1
+    vid_path =  os.path.join(cfg.input_dir, p['vid_subdir'], p['vid_name'])
+    p['end'] = basic.get_frame_count(vid_path, p['end'])
+    # creates filepaths for video, data, and figures
+    _, data_path, vid_dir, \
+    data_dir, figs_dir, _ = mh.get_paths(p, True)
+   
     # tries to open data file (pkl)
     try:
         with open(data_path, 'rb') as f:
@@ -297,9 +285,6 @@ def highlight_and_save_tracked_video(input_file, input_dir, output_dir,
 
     # loads video
     cap = cv2.VideoCapture(vid_path)
-    # chooses end frame to be last frame if given as -1
-    if p['end'] == -1:
-        p['end'] = basic.count_frames(vid_path)
 
     # loops through frames of video with objects according to data file
     for f in range(p['start'], p['end'], p['every']):
@@ -312,12 +297,17 @@ def highlight_and_save_tracked_video(input_file, input_dir, output_dir,
 
         # loads frame
         frame = basic.read_frame(cap, f)
-        # highlights and saves frame
-        highlight_and_save_image(frame, f, cfg.highlight_method,
-                                metadata, objects, IDs, figs_dir,
-                                brightness, ext, color_object, offset,
-                                std_color, border_color, error_color)
-            
+
+        # highlights and labels objects in frame frame
+        im_labeled = highlight_image(frame, f, cfg.highlight_method,
+                                metadata, objects, IDs,
+                                brightness, color_object, offset,
+                                label_color_method=label_color_method,
+                                label_kwargs=label_kwargs)
+        # saves image
+        save_path = os.path.join(figs_dir, '{0:d}.{1:s}'.format(f, ext))
+        basic.save_image(im_labeled, save_path)
+
         # prints out success
         if not quiet:
             print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
@@ -338,11 +328,15 @@ def main():
     offset = args['offset']
     quiet = args['quiet']
 
-    highlight_and_save_tracked_video(input_file, cfg.input_dir, cfg.output_dir, 
+    # loads parameters from input file
+    p = readin.load_params(os.path.join(cfg.input_dir, input_file))
+
+    # highlights and saves images in tracked video
+    highlight_and_save_tracked_video(p, cfg.input_dir, cfg.output_dir, 
                             cfg.data_subdir, cfg.figs_subdir, 
                             skip_blanks=skip_blanks, brightness=brightness, 
-                            ext=ext, color_object=color_object, offset=offset, quiet=quiet,
-                            std_color=cfg.white, border_color=cfg.black, error_color=cfg.red)
+                            ext=ext, color_object=color_object, offset=offset, 
+                            quiet=quiet)
 
     return
 

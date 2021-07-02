@@ -240,10 +240,6 @@ def get_mask(vid_path, check=True):
     """
     # loads mask data; user creates new mask by clicking if none available
     first_frame, _ = basic.load_frame(vid_path, 0)
-
-    print(vid_path)
-
-
     flow_dir, mask_data = ui.click_flow(first_frame,
                                     vid_path[:-4]+'_mask.pkl', check=check)
     # computes minimum and maximum rows for object tracking computation

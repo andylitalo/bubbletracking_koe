@@ -134,7 +134,7 @@ class TrackedObject:
             return self.props_proc[prop]
         # otherwise, not found
         else:
-            print('Property not found in object. Returning None.')
+            print('Property {0:s} not found in object. Returning None.'.format(prop))
             return None
 
     ###### MUTATORS ########
