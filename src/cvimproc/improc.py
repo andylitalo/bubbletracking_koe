@@ -18,6 +18,7 @@ import time
 
 # imports image-processing-specific libraries
 import cv2
+import skimage.measure # imported since assign_objects is still in Python
 
 # imports custom image processing libraries
 import cvimproc.mask as mask
@@ -811,9 +812,14 @@ def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False):
     Computes properties of objects in a binarized image using OpenCV.
     """
     bw_frame = basic.cvify(bw_frame)
-    return region_props_find(bw_frame, n_frame=n_frame, 
+    # TODO -- clean this up
+    try:
+        import skimage.measure
+        return region_props_skimage(bw_frame, n_frame=n_frame, 
+                                    width_border=width_border)
+    except:
+        return region_props_find(bw_frame, n_frame=n_frame, 
                     width_border=width_border, ellipse=ellipse)
-
 
 def region_props_connected(bw_frame, n_frame=-1, width_border=5):
     """
@@ -928,6 +934,48 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
               bw_frame, width_border)
 
         # adds dictionary for this object to list of objects in current frame
+        objects += [obj]
+
+    return objects
+
+
+def region_props_skimage(bw_frame, n_frame=-1, width_border=5):
+    """
+    TODO -- rewrite region_props_find() using skimage and saving
+    other interesting region props like clips of images of the 
+    objects.
+    """
+    # labels frame
+    frame_labeled = skimage.measure.label(bw_frame)
+    # identifies the different objects in the frame
+    region_props = skimage.measure.regionprops(frame_labeled)
+
+    # creates dictionaries of properties for each object
+    objects = []
+
+    # loads properties for each object in frame
+    for i, props in enumerate(region_props):
+        # creates dictionary of bubble properties for one frame
+        obj = {}
+        
+        # loads and stores region properties
+        obj['centroid'] = props.centroid # as (row, col)
+        obj['area'] = props.area
+        obj['orientation'] = props.orientation
+        obj['major axis'] = props.major_axis_length
+        obj['minor axis'] = props.minor_axis_length
+        obj['bbox'] = props.bbox # (row_min, col_min, row_max, col_max)
+        # saves frame number
+        if n_frame >= 0:
+            obj['frame'] = n_frame
+        obj['on border'] = is_on_border(props.bbox, frame_labeled, 
+                                                    width_border)
+        # solidity is the ratio of the area to the area of the convex hull
+        obj['solidity'] = props.solidity
+        # stores image of object ???
+        obj['image'] = props.image 
+
+        # stores object
         objects += [obj]
 
     return objects

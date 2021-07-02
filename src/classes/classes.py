@@ -84,13 +84,14 @@ class TrackedObject:
 
         # initializes storage of raw properties
         self.props_raw = {'frame':[], 'centroid':[], 'area':[], 'major axis':[],
-                          'minor axis':[], 'orientation':[], 'bbox':[],
-                          'on border':[]}
+                          'minor axis':[], 'orientation':[], 'bbox':[], 'image':[],
+                          'solidity':[], 'on border':[]}
         # initializes storage of processed properties
         self.props_proc = {'speed':[],
                             'average area':None, 'average speed':None,
                            'average orientation':None, 'aspect ratio':[],
-                           'average aspect ratio':None, 'true centroids':[]
+                           'average aspect ratio':None, 'average solidity':None,
+                           'true centroids':[]
                           }
         # loads raw properties if provided
         if len(props_raw) > 0:
@@ -152,7 +153,7 @@ class TrackedObject:
                 else:
                     self.props_raw[key] += [prop]
             else:
-                print('Trying to add property not in props_raw.')
+                print('Trying to add property {0:s} not in props_raw.'.format(key))
 
 
     def proc_props(self):
@@ -163,7 +164,7 @@ class TrackedObject:
 
         # computes average area [pix^2]
         area = self.props_raw['area']
-        self.props_proc['average area'] = np.mean(area)
+        self.props_proc['average area'] = self.mean_safe(area)
 
         # uses width and height if major and minor axes were not computed
         if (len(self.props_raw['major axis']) == 0) or \
@@ -177,8 +178,10 @@ class TrackedObject:
         self.props_proc['aspect ratio'] = [major_list[i] / \
                                             max(1, minor_list[i]) \
                                             for i in range(n_frames)]
-        self.props_proc['average aspect ratio'] = np.mean( \
+        self.props_proc['average aspect ratio'] = self.mean_safe( \
                                             self.props_proc['aspect ratio'])
+        # averages solidity
+        self.props_proc['average solidity'] = self.mean_safe(self.props_raw['solidity'])
 
         # computes average speed
         v_list = []
@@ -204,6 +207,25 @@ class TrackedObject:
 
 
     #### HELPER FUNCTIONS ####
+
+    def mean_safe(self, vals):
+        """
+        Takes mean if list of values is not empty; otherwise returns None.
+
+        Parameters
+        ----------
+        vals : list
+            List of values to take the mean of
+        
+        Returns
+        -------
+        mean : float (or None)
+            Mean of values (or None if no values in list)
+        """
+        if len(vals) > 0:
+            return np.mean(vals)
+        else:
+            return None
 
     def predict_centroid(self, f):
         """
