@@ -2,7 +2,7 @@
 basic_tracking.py highlights, labels, and analyzes bubbles in test videos
 of white circles moving across a black background.
 
-Based on `main.py` from `src` folder.
+Modify from `main.py` from `src` folder.
 
 @author Andy Ylitalo
 @date May 3, 2021
@@ -34,7 +34,6 @@ def main():
 
     ####################### 0) PARSE INPUT ARGUMENTS ###########################
     tests, input_file, check, replace = readin.parse_args()
-
     ######################### 1) PRE-PROCESSING ################################
 
     # determines filepath to input parameters (.txt file)

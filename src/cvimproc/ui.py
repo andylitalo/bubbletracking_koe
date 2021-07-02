@@ -313,7 +313,6 @@ def get_polygonal_mask_data(im, mask_file, check=False, save=True,
         vertices = define_outer_edge(im, 'polygon', message=msg)
         mask_data = mask.create_polygonal_mask_data(im, vertices, mask_file,
                                                                 save=save)
-
     while check:
         plt.figure('Evaluate accuracy of predrawn masks for your video')
         plt.rcParams.update({'figure.autolayout': True})

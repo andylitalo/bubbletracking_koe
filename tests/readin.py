@@ -45,11 +45,10 @@ def parse_args():
     args = vars(ap.parse_args())
 
     # extracts and formats individual parameters
-    print(args['tests'])
     tests = list(args['tests'])
     input_file = args['input_file']
-    check = bool(args['check'])
-    replace = bool(args['replace'])
+    check = int(args['check'])
+    replace = int(args['replace'])
 
     return tests, input_file, check, replace
 
