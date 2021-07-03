@@ -200,6 +200,7 @@ def get_flow_props(vid_path, p):
     vid_params = fn.parse_vid_path(vid_path)
     Q_i = conv.uLmin_2_m3s*vid_params['Q_i'] # inner stream flow rate [m^3/s]
     Q_o = conv.uLmin_2_m3s*vid_params['Q_o'] # outer stream flow rate [m^3/s]
+    d = conv.mm_2_m*vid_params['d']
     mag = vid_params['mag'] # magnification of objective (used for pix->um conv)
     # gets unit conversion based on camera and microscope magnification
     pix_per_um = conv.pix_per_um[p['camera']][mag]
@@ -211,7 +212,7 @@ def get_flow_props(vid_path, p):
     # computes velocity at interface of inner stream [m/s]
     v_interf = flow.v_interf(Q_i, Q_o, p['eta_i'], p['eta_o'], p['R_o'], p['L'])
 
-    return dp, R_i, v_max, v_interf, Q_i, Q_o, pix_per_um
+    return dp, R_i, v_max, v_interf, Q_i, Q_o, pix_per_um, d
 
 
 def get_mask(vid_path, check=True):
