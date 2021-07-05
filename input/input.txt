@@ -1,4 +1,4 @@
-input_name = testv0121 # name for this set of parameters, no apostrophes
+input_name = testclassify # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
 eta_i = 0.01 # inner stream viscosity [Pa.s]
