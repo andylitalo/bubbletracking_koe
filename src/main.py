@@ -82,7 +82,7 @@ def main():
     for ID in objs.keys():
         obj = objs[ID]
         # computes average speed [m/s]
-        obj.proc_props()
+        obj.process_props()
         # classifies object as inner or outer stream (or error)
         obj.classify(v_interf)
 
