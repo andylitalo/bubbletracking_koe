@@ -299,7 +299,7 @@ def get_paths(p, replace):
     # if replacement requested, previous background may be used upon request
     if os.path.isfile(data_path):
         if not replace:
-            print('{0:s} already exists. Terminating analysis.'.format(data_path))
+            print('{0:s} already exists. Recommending to stop analysis.'.format(data_path))
             stop = True
 
     return vid_path, data_path, vid_dir, data_dir, figs_dir, stop
