@@ -128,7 +128,7 @@ def main():
         for ID in objs.keys():
             obj = objs[ID]
             # computes average speed [m/s]
-            obj.proc_props()
+            obj.process_props()
 
         ########################## 4) SAVE RESULTS #################################
         # stores metadata (I will not store video parameters or parameters from the
