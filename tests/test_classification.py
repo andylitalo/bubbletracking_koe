@@ -25,12 +25,14 @@ import genl.readin as readin
 import genl.main_helper as mh
 
 
-def classify_test(obj, max_aspect_ratio=10, min_solidity=0.9,
-            min_size=10, max_orientation=np.pi/10, circle_aspect_ratio=1.1,
+def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
+            min_size=20, max_orientation=np.pi/4, circle_aspect_ratio=1.1,
             n_consec=3):
     """
     Classifies Bubble objects into different categories. Still testing to see
     what classifications are most important.
+
+    Parameters are currently guesses. ML would be a better method for selecting them.
 
     Turn this into ML with the following labels (sequences of):
     - Aspect Ratio
@@ -45,6 +47,7 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.9,
     - height
 
     ***Ask Chris about this! TODO
+    ***CHALLENGE: how do I classify large, elongated bubbles separately? TODO
     """
     # creates dictionary of classifications
     classifications = {'solid' : None, 'circular' : None, 'oriented' : None,
@@ -76,7 +79,9 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.9,
 
     # oriented off axis (orientation of skimage.regionprops is CCW from up direction)
     if any( np.logical_and(
-                np.abs(np.asarray(obj.get_props('orientation')) + np.pi/2) < max_orientation,
+                np.logical_and(
+                    np.abs(np.asarray(obj.get_props('orientation')) + np.pi/2) > max_orientation,
+                    np.abs(np.asarray(obj.get_props('orientation')) - np.pi/2) > max_orientation),
                 np.asarray(obj.get_props('area')) > min_size )
             ):
         classifications['oriented'] = False
@@ -174,7 +179,11 @@ def main():
             classifications = classify_test(obj)
             # prints out classifications
             for prop, val in classifications.items():
-                print('Object {0:d}: is it {1:s}? {2:d}'.format(ID, prop, val))
+                if not val:
+                    print('Object {0:d} is not {1:s}'.format(ID, prop))
+
+            # print('Orientation of {0:d}'.format(ID))
+            # print(obj.get_props('orientation'))
             # creates image of bubbles superposed on frame
             im = superpose_images(obj)
             # saves image
