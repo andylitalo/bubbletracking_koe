@@ -19,7 +19,10 @@ import numpy as np
 import sys
 sys.path.append('../src/')
 import config as cfg
+import cvimproc.basic as basic
 import genl.conversions as conv
+import genl.readin as readin
+import genl.main_helper as mh
 
 
 def classify_test(obj, max_aspect_ratio=10, min_solidity=0.9,
@@ -100,23 +103,68 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.9,
     return classifications
 
 
+def superpose_images(obj):
+    """
+    Superposes images of an object onto one frame.
+
+    Parameters
+    ----------
+    obj : TrackedObject
+        Object that has been tracked. Must have 'image', 'local centroid',
+        'frame_dim', 'bbox', and 'centroid' parameters.
+
+    Returns
+    -------
+    im : (M x N) numpy array of uint8
+        Image of object over time; each snapshot is superposed 
+        (likely black-and-white)
+    """
+    frame_dim = obj.get_metadata('frame_dim')
+    # initializes image black
+    im = np.zeros(frame_dim, dtype='uint8')
+
+    # superposes image from each frame
+    frame_list = obj.get_props('frame')
+    for f in frame_list:
+        # loads bounding box and image within it
+        row_min, col_min, row_max, col_max = obj.get_prop('bbox', f)
+        im_obj = obj.get_prop('image', f)
+
+        # superposes object image on overall image
+        im[row_min:row_max, col_min:col_max] = basic.cvify(im_obj)
+    
+    return im
+
+
 
 
 # OR, DO I WANT TO PROCESS THESE SPECIALLY?
 
 def main():
-    vid_subdirs = [#'sd301_co2/20210331_45bar/sd301_co2_40000_001_050_0150_95_04_9/',
-                    'sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testclassify/data/f_0_1_11089.pkl']
+    
+    input_subpaths = [#'sd301_co2/20210331_45bar/sd301_co2_40000_001_050_0150_95_04_9/',
+                    'sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testclassify/data/input.txt']
+    ext = 'jpg'
+    replace = True
 
-    # creates list of dataset filepaths
-    data_filepaths = [os.path.join(cfg.output_dir, vid_subdir) for vid_subdir in vid_subdirs]
+    input_filepaths = [os.path.join(cfg.output_dir, input_subpath) for input_subpath in input_subpaths]
 
     # loops through datasets
-    for data_filepath in data_filepaths:
-        print(data_filepath)
+    for input_filepath in input_filepaths:
+        print(input_filepath)
+
+        # loads parameters
+        p = readin.load_params(input_filepath)
+        # determines appropriate directories based on parameters
+        vid_path, data_path, vid_dir, \
+        data_dir, figs_dir, _ = mh.get_paths(p, replace)
+
+        # determines save paths
+        p['vid_subdir'] = 'test/classification/'
+        _, _, _, _, figs_dir, _ = mh.get_paths(p, replace)
 
         # loads data
-        with open(data_filepath, 'rb') as f:
+        with open(data_path, 'rb') as f:
             data = pkl.load(f)
             objects = data['objects']
 
@@ -124,14 +172,13 @@ def main():
         for ID, obj in objects.items():
             # perform test classification
             classifications = classify_test(obj)
-
-
-
-    # creates image of bubbles superposed on frame
-
-    # how do I record results of classification? preferably on image?
-
-    # save image
+            # prints out classifications
+            for prop, val in classifications.items():
+                print('Object {0:d}: is it {1:s}? {2:d}'.format(ID, prop, val))
+            # creates image of bubbles superposed on frame
+            im = superpose_images(obj)
+            # saves image
+            basic.save_image(im, os.path.join(figs_dir, '{0:d}.{1:s}'.format(ID, ext)))    
 
     return 
 
