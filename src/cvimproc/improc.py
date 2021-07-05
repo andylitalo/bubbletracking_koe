@@ -972,8 +972,11 @@ def region_props_skimage(bw_frame, n_frame=-1, width_border=5):
                                                     width_border)
         # solidity is the ratio of the area to the area of the convex hull
         obj['solidity'] = props.solidity
-        # stores image of object ???
+        # image of obj within bbox
         obj['image'] = props.image 
+        # centroid relative to bounding box (bbox) as (row, col)
+        obj['local centroid'] = props.local_centroid
+
 
         # stores object
         objects += [obj]
