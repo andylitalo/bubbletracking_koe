@@ -81,9 +81,11 @@ def load_params(input_file):
     p['start'] = int(params['start'])
     p['end'] = int(params['end'])
     p['every'] = int(params['every'])
-    p['th'] = int(params['th'])
-    p['th_lo'] = int(params['th_lo'])
-    p['th_hi'] = int(params['th_hi'])
+    # determines thresholds
+    p['th'] = int(params['th']) # uniform threshold
+    p['th_lo'] = int(params['th_lo']) # low hysteresis threshold
+    p['th_hi'] = int(params['th_hi']) # high hysteresis threshold        
+
     # makes sure thresholds are properly ordered (prevents input errors)
     assert correct_thresholds(p), \
             'thresholds not properly ordered th_lo < th < th_hi'
@@ -111,4 +113,5 @@ def correct_thresholds(p):
     """
     Checks that the thresholds are ordered th_lo < th < th_hi
     """
-    return (p['th_lo'] < p['th']) and (p['th'] < p['th_hi'])
+    return ( (p['th_lo'] < p['th']) or p['th'] == -1 ) and \
+            ( (p['th'] < p['th_hi']) or p['th_hi'] == -1 ) 

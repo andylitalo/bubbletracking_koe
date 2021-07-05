@@ -33,12 +33,13 @@ import cvimproc.improc as improc
 import cvimproc.basic as basic
 import cvimproc.ui as ui
 import cvimproc.mask as mask
-import statlib as stat
+import analysis.statlib as stat
 
 
 ### PARAMETERS ###
 # path to video for testing
-vid_path = '../input/sd301_co2/20210403_76bar/sd301_co2_40000_001_050_0280_88_04_10.mp4'
+vid_path = '../input/sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10.mp4' 
+#'../input/sd301_co2/20210403_76bar/sd301_co2_40000_001_050_0280_88_04_10.mp4'
 # path to save folder
 save_path = '../output/hist_pix/sd301_co2_40000_001_050_0280_88_04_10/'
 # extension for images to save
@@ -68,60 +69,31 @@ def parse_args():
     ap.add_argument('-f', '--framerange', nargs=2, default=(0,0),
                     metavar=('frame_start, frame_end'),
                     help='starting and ending frames to save')
-    ap.add_argument('-s', '--stopearly', default=False, type=bool,
+    ap.add_argument('-e', '--stopearly', default=0, type=int,
                     help='Stops analysis before saving images if True.')
-    ap.add_argument('-d', '--savediff', default=False, type=bool,
+    ap.add_argument('-d', '--savediff', default=0, type=int,
                     help='Saves absolute difference from bkgd instead of image if True.')
     ap.add_argument('-c', '--colormap', default='',
                      help='Specifies colormap for saving false-color images.')
+    ap.add_argument('-s', '--save', default=1, type=int,
+                    help='Will only save images if True.')
     args = vars(ap.parse_args())
 
     frame_start, frame_end = int(args['framerange'][0]), int(args['framerange'][1])
     stop_early = args['stopearly']
     save_diff = args['savediff']
     colormap = args['colormap']
+    save = args['save']
     
-    return frame_start, frame_end, stop_early, save_diff, colormap
-
-def proc_stats(vid_path, bkgd, end):
-    """Processes statistics of the images in the video."""
-    # initializes lists to store data
-    mean_list = []
-    stdev_list = []
-    mean_sq_list = []
-    min_val_list = []
-
-    # load frames and process
-    cap = cv2.VideoCapture(vid_path)
-    f = 0
-
-    while(cap.isOpened()):
-        ret, frame = cap.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        signed_diff = frame.astype(int) - bkgd.astype(int)
-        mean_list += [np.mean(signed_diff)]
-        mean_sq_list += [np.mean(signed_diff**2)]
-        stdev_list += [np.std(signed_diff)]
-        min_val_list += [np.min(signed_diff)]
-
-        if not ret or f >= end:
-            break
-        
-        f += 1
-
-    cap.release()
-
-    return mean_list, mean_sq_list, stdev_list, min_val_list
-
-
+    return frame_start, frame_end, stop_early, save_diff, colormap, save
 
 
 ### COMPUTATIONS ###
 
 def main():
     
-    frame_start, frame_end, stop_early, save_diff, colormap = parse_args()
+    frame_start, frame_end, stop_early,\
+    save_diff, colormap, save = parse_args()
 
     # creates color map
     if len(colormap) > 0:
@@ -149,14 +121,16 @@ def main():
             im = PIL.Image.fromarray(diff)
         else:
             im = PIL.Image.fromarray(frame)
-        im.save(os.path.join(save_path, '{0:d}.{1:s}'.format(f, ext)))
+        if save:
+            im.save(os.path.join(save_path, '{0:d}.{1:s}'.format(f, ext)))
         # plots histogram
         signed_diff = frame.astype(int) - bkgd.astype(int)
         plt.figure()
         _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
         plt.ylim(0, hist_max)
         plt.title('{0:d}'.format(f))
-        plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
+        if save:
+            plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
         plt.close()
         if len(colormap) > 0:
             # scales brightness of pixels to saturation (or near it)
@@ -194,7 +168,8 @@ def main():
     plt.title('Mean')
     plt.legend()
     # saves figure
-    plt.savefig(os.path.join(save_path, 'mean_hist.png'))
+    if save:
+        plt.savefig(os.path.join(save_path, 'mean_hist.png'))
 
     # STANDARD DEVIATION
     plt.figure()
@@ -204,7 +179,8 @@ def main():
     plt.title('Standard Deviation')
     plt.legend()
     # saves figure
-    plt.savefig(os.path.join(save_path, 'stdev_hist.png'))
+    if save:
+        plt.savefig(os.path.join(save_path, 'stdev_hist.png'))
 
     # MINIMUM
     plt.figure()
@@ -220,10 +196,9 @@ def main():
                     label=r'$\mu - 5\sigma$' + '{0:.2f}'.format(fivesig))
     plt.legend()
     # saves figure
-    plt.savefig(os.path.join(save_path, 'min_hist.png'))
+    if save:
+        plt.savefig(os.path.join(save_path, 'min_hist.png'))
 
-    if stop_early:
-        return 0
 
     ####################### ROUND 2 OF ANALYSIS #############################
     # now that we know the mean and standard deviation of each image, we can
@@ -270,6 +245,9 @@ def main():
     print('Threshold from KDE is {0:.1f}.'.format(th_min_kde))
 
 
+    if stop_early:
+        return 0
+
     # load frames and process
     cap = cv2.VideoCapture(vid_path)
     f = 0
@@ -308,14 +286,16 @@ def main():
                 im = PIL.Image.fromarray(diff)
             else:
                 im = PIL.Image.fromarray(frame)
-            im.save(os.path.join(save_path, sub_dir, '{0:d}.{1:s}'.format(f, ext)))
+            if save:
+                im.save(os.path.join(save_path, sub_dir, '{0:d}.{1:s}'.format(f, ext)))
             # plotting as step is faster
             plt.figure()
             _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
             plt.ylim(0, hist_max)
             plt.title('f{0:d}; mean = {1:.2f}; std = {2:.2f}; min = {3:d}'.format(f, \
                                         mean, stdev, int(min_val)))
-            plt.savefig(os.path.join(save_path, sub_dir, \
+            if save:
+                plt.savefig(os.path.join(save_path, sub_dir, \
                                         'hist_{0:d}.{1:s}'.format(f, ext)))
             plt.close()
 

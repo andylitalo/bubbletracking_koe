@@ -607,6 +607,7 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
         'In improc.highlight_objects_hyst_thresh(), low threshold must be lower.'
 
     # masks inputs
+    # TODO -- implement in CvVidProc
     if mask_data is not None:
         # computes minimum and maximum rows for object tracking computation
         row_lo, _, row_hi, _ = mask.get_bbox(mask_data)

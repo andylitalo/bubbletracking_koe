@@ -15,6 +15,7 @@ import time
 import cvimproc.improc as improc
 import genl.readin as readin
 import genl.main_helper as mh
+import analysis.statlib as stat
 
 # global variables and configurations
 import config as cfg
@@ -42,15 +43,23 @@ def main():
     # TODO -- give option to provide mask that includes outer stream to
     # track outer-stream bubbles, too (e.g., for velocity mapping)
 
-    # computes background
+    # computes background (cropped)
     bkgd = mh.get_bkgd(vid_path, data_dir, row_lo, row_hi,
                     p['num_frames_for_bkgd'], use_prev_bkgd)
+
+    # if thresholds not provided, estimates reasonable values (cf hist_pix.py`)
+    if p['th'] == -1 or p['th_lo'] == -1 or p['th_hi'] == -1:
+        th, th_lo, th_hi = stat.suggest_thresholds(vid_path, mask_data, bkgd, 
+                                            p['start'], p['end'], p['every']) 
+        # only updates thresholds that were given as -1
+        p = mh.update_thresholds(p, th, th_lo, th_hi)
+
+        print(p['th'], p['th_lo'], p['th_hi'])
 
     # computes flow properties
     dp, R_i, v_max, v_interf, \
     Q_i, Q_o, pix_per_um, d = mh.get_flow_props(vid_path, p)
 
-    # TODO -- estimate thresholds
 
     ######################## 2) TRACK OBJECTS ##################################
     # organizes arguments for object segmentation function

@@ -352,3 +352,14 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
         pkl.dump(data, f)
 
     return 
+
+
+def update_thresholds(p, th, th_lo, th_hi):
+    """
+    Updates values of thresholds with those suggested.
+    """
+    for name, thresh in [('th', th), ('th_lo', th_lo), ('th_hi', th_hi)]:
+        if p[name] == -1:
+            p[name] = thresh 
+
+    return p

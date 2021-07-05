@@ -13,6 +13,11 @@ import matplotlib.pyplot as plt
 # imports 3rd party libraries
 import cv2
 from sklearn import metrics
+from sklearn.cluster import KMeans
+
+# imports custom libraries
+import cvimproc.mask as mask
+
 
 
 def inds_to_labels(inds, n_samples):
@@ -90,7 +95,7 @@ def plot_roc(fpr, tpr, save_path='', ext='.jpg', show_fig=False,
     return ax
     
 
-def proc_stats(vid_path, bkgd, end, start=0):
+def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
     """
     Processes statistics of the images in the video.
 
@@ -104,6 +109,8 @@ def proc_stats(vid_path, bkgd, end, start=0):
         final frame to analyze
     start : int, opt (default = 0)
         first frame to analyze
+    every : int, optional
+        Only loads every "every" frame (default = 1)
 
     Returns
     -------
@@ -129,24 +136,83 @@ def proc_stats(vid_path, bkgd, end, start=0):
     cap.set(cv2.CAP_PROP_POS_FRAMES, start)
     f = start
 
+    # masks background
+    row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
+    bkgd = mask.mask_image(bkgd, mask_data['mask'][row_lo:row_hi])
+    # loads rows to crop from mask
+
     while(cap.isOpened()):
+        # reads current frame
         ret, frame = cap.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # skips every "every" number of frames
+        if (f - start) % every != 0:
+            continue
+
+        # stops at video or user-specified end frame
+        if not ret or f >= end:
+            break
         
-        signed_diff = frame.astype(int) - bkgd.astype(int)
+        # converts frame to grayscale and masks
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame = mask.mask_image(frame_gray, mask_data['mask'])
+        # crops frame
+        frame_cropped = frame[row_lo:row_hi]
+
+        # loads data for statistics
+        signed_diff = frame_cropped.astype(int) - bkgd.astype(int)
         mean_list += [np.mean(signed_diff)]
         mean_sq_list += [np.mean(signed_diff**2)]
         stdev_list += [np.std(signed_diff)]
         min_val_list += [np.min(signed_diff)]
 
-        if not ret or f >= end:
-            break
-        
+        # increments frame number
         f += 1
 
     cap.release()
 
     return mean_list, mean_sq_list, stdev_list, min_val_list
+
+
+def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every):
+    """
+    Suggests high and low thresholds for hysteresis threshold and 
+    threshold for uniform threshold based on k-means and other stats.
+
+    Created and tested in `analysis/hist_pix.py`.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    th, th_lo, th_hi : uint8
+        Uniform threshold, low threshold for hysteresis thresholding,
+        and high threshold for hysteresis thresholding
+    """
+    # computes statistics of the image
+    _, _, _, min_val_list = proc_stats(vid_path, mask_data, bkgd, end, 
+                                            start=start, every=every)
+    # converts to array for numpy operations
+    min_val_arr = np.asarray(min_val_list)
+    # divides minima into 2 clusters with k-means algorithm
+    inds_clusters = KMeans(n_clusters=2, 
+                        random_state=1).fit_predict(min_val_arr.reshape(-1, 1))
+    # identifies the boundaries of the clusters to use as suggested thresholds
+    i_low_cluster = inds_clusters[np.argmin(min_val_arr)]
+    max_low_cluster = np.max(min_val_arr[inds_clusters==i_low_cluster])
+    i_high_cluster = inds_clusters[np.argmax(min_val_arr)]
+    min_high_cluster = np.min(min_val_arr[inds_clusters==i_high_cluster])
+
+    # sets uniform threshold to upper bound of lower k-means cluster
+    th = int(np.abs(max_low_cluster))
+    # sets high hysteresis threshold to lower bound of higher k-means cluster
+    # *same as Otsu's method
+    th_hi = int(np.abs(min_high_cluster))
+    # sets low hysteresis threshold to mean of minimum + 1 standard deviation
+    th_lo = int(np.abs(np.mean(min_val_arr)) + np.std(min_val_arr))
+
+    return th, th_lo, th_hi
 
 
 def thresh_roc(x, y, n=100):
