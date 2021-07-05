@@ -66,5 +66,14 @@ your video in the `output` folder.
  - Apply homographic transformation so inner stream is horizontal and mask cuts off all of the outer stream
 (currently, the mask is applied as a bounding box)
  - Actually show result of masking when asking user if mask is okay
- - Remove second request for mask (can just ask user to mask region of interest and ensure that first click gives flow direction)
-
+ - Break down data into objects (is there a way to automatically generate these objects during experiment
+    and just fill in the Bubble data with analysis later?):
+    Experiment
+    --> Trial
+        --> Video
+            --> Bubbles
+        --> Pumps
+    --> MicrofluidicDevice
+        --> ObservationCapillary
+        --> Tubing
+        --> InnerStreamCapillary
