@@ -46,6 +46,14 @@ class TrackedObject:
             85064/where-is-the-rotated-angle-actually-located-in-fitellipse-method)
         - bbox : list of the bounding boxes of object in each frame
             (row_min, col_min, row_max, col_max)
+        - image : (P x Q) array of uint8
+            Image of object restricted to bounding box (dims P x Q)
+            Likely already binarized
+        - local centroid : 2-tuple of floats
+            Centroid of object relative to bounding box (i.e., within image)
+        - solidity : list of floats
+            Area (pixels) of object divided by area of its convex hull
+            Rough measure of convexity (perfectly convex has solidity = 1)
         - on border : list of booleans indicating if object is on 
             border (True) or not (False)
     props_proc : dictionary
@@ -85,7 +93,7 @@ class TrackedObject:
         # initializes storage of raw properties
         self.props_raw = {'frame':[], 'centroid':[], 'area':[], 'major axis':[],
                           'minor axis':[], 'orientation':[], 'bbox':[], 'image':[],
-                          'solidity':[], 'on border':[]}
+                          'solidity':[], 'local centroid':[], 'on border':[]}
         # initializes storage of processed properties
         self.props_proc = {'speed':[],
                             'average area':None, 'average speed':None,
@@ -156,7 +164,7 @@ class TrackedObject:
                 print('Trying to add property {0:s} not in props_raw.'.format(key))
 
 
-    def proc_props(self):
+    def process_props(self):
         """Computes processed properties, such as speed and average values."""
 
         # counts the number of frames
@@ -183,30 +191,61 @@ class TrackedObject:
         # averages solidity
         self.props_proc['average solidity'] = self.mean_safe(self.props_raw['solidity'])
 
-        # computes average speed
-        v_list = []
-        fps = self.metadata['fps'] # [frames / s]
-        dt = 1/fps # [s]
-        frame_list = self.props_raw['frame']
-        centroid_list = self.props_raw['centroid']
-        # estimates speed with first-order difference
-        for i in range(n_frames-1):
-            # distance between consecutive centroids [pixels]
-            # TODO account for shift in centroid if object is "on border"
-            d = np.linalg.norm(np.array(centroid_list[i+1]) - np.array(centroid_list[i]))
-            # time between consecutive frames
-            t = dt*(frame_list[i+1]-frame_list[i]) # [s]
-            v_list += [d/t] # [pixel/s]
+        # computes average speed [pix/s]
+        speed_list = self.compute_speed()
         # shifts speeds by one index (so calculation becomes backward difference)
-        if len(v_list) > 0:
-            # assumes speed in first frame is same as the second frame so speed list
-            # has as many elements as the other properties
-            v_list.insert(0, v_list[0])
-            self.props_proc['speed'] = v_list
-            self.props_proc['average speed'] = np.mean(v_list)
+        if len(speed_list) > 0:
+            self.props_proc['speed'] = speed_list
+            self.props_proc['average speed'] = np.mean(speed_list)
 
 
     #### HELPER FUNCTIONS ####
+
+    def appears_in_consec_frames(self, n_consec=1):
+        """Returns True if object appears in consecutive frames."""
+        return len(np.where(np.diff(self.props_raw['frame'])==1)[0]) >= n_consec
+
+
+    def compute_speed(self):
+        """
+        Computes speed by taking the L2-norm of the velocity computed by
+        `compute_velocity()`.
+
+        Returns
+        -------
+        speed_list : list of N 2-tuples of floats
+            Speed at each frame where there are data. First and second are same by
+            definition. Otherwise, computed with backward Euler.
+        """
+        v_list = self.compute_velocity()
+        speed_list = [np.linalg.norm(v) for v in v_list]
+
+        return speed_list
+        
+
+    def compute_velocity(self):
+        """
+        Computes velocity (speed in row and column directions) over each interval of frames.
+        Assumes same velocity in the first frame as the second.
+
+        Returns
+        -------
+        v_list : list of N 2-tuples of floats
+            Velocity at each frame where there are data. First and second are same by
+            definition. Otherwise, computed with backward Euler.
+        """
+        # extracts centroid coordinates (rows and columns)
+        rc, cc = list(zip(*self.props_raw['centroid']))
+        # computes time steps (one element shorter than rc, cc)
+        dt = np.diff(self.props_raw['frame'])/self.metadata['fps']
+        # computes velocity with backward Euler formula
+        v_list = [ ( (rc[i+1]-rc[i])/dt[i], (cc[i+1]-cc[i])/dt[i] ) for i in range(len(dt)) ]
+        # sets velocity at first frame to be the same as the second
+        if len(v_list) > 0:
+            v_list.insert(0, v_list[0])
+
+        return v_list
+
 
     def mean_safe(self, vals):
         """
@@ -298,6 +337,28 @@ class Bubble(TrackedObject):
         - inner stream : int
             -1 --> error, 0 --> bubble is in the outer stream, 1 --> bubble
             is in the inner stream of microfluidic sheath flow
+
+        Also, "metadata" should include:
+            flow_dir : 2-tuple of floats
+                Normalized vector indicating direction of flow (row, col)
+            pix_per_um : float
+                Pixels in one micron (conversion)
+            R_i : float
+                Inner stream radius predicted by Stokes eqns [m]
+            R_o : float
+                Outer stream radius (half of inner diameter of 
+                observation capillary) [m]
+            v_max : float
+                Predicted maximum velocity based on Stokes eqns [m/s]
+            v_interf : float
+                Predicted velocity at the interface of the inner stream
+                based on Stokes eqns [m/s]
+            d : float
+                Distance along observation capillary [m]
+            L : float
+                Length of observation capillary [m]
+            dp : float
+                Pressure drop along observation capillary [Pa]
         """
 
         # uses TrackedObject init fn to lay foundation for the object
@@ -307,13 +368,16 @@ class Bubble(TrackedObject):
         self.props_proc['average radius'] = None
         self.props_proc['speed [m/s]'] = []
         self.props_proc['average speed [m/s]'] = None
+        self.props_proc['flow speed [m/s]'] = []
+        self.props_proc['average flow speed [m/s]'] = None
         # inner stream is 0 if bubble is likely in outer stream, 1 if
         # likely in inner stream, and -1 if unknown or not evaluated yet
         self.props_proc['inner stream'] = -1
 
        
     ###### MUTATORS ########
-    def classify(self, v_interf, max_aspect_ratio=10):
+    def classify(self, max_aspect_ratio=10, min_solidity=0.9,
+                min_size=10, max_orientation=np.pi/10, circle_aspect_ratio=1.1):
         """
         Classifies bubble as inner or outer stream based on velocity cutoff.
         N.B.: If there is no inner stream (inner stream flow rate Q_i = 0),
@@ -322,22 +386,44 @@ class Bubble(TrackedObject):
 
         Parameters
         ----------
-        v_interf : float
-            Predicted speed of the sheath flow at the interface between the
-            inner stream and the outer stream [m/s]
         max_aspect_ratio : float, optional
             Maximum aspect ratio to classify an object as a bubble (otherwise
             sets inner stream --> -1 to signify an error)
 
+        min_size : int, optional
+            Minimum size to have a meaningful solidity and orientation.
+            Default is 10 because a 3 x 4 grid with one missing edge pixel
+            has a solidity of 0.917, so a bubble with a slight artifact will
+            still have a sufficient solidity (> 0.9) to be classified as a bubble
+            at this size.
+
         Returns nothing.
         """
-        # counts number of frames in which bubble appears
-        n_frames = len(self.props_raw['frame'])
-        # computes average speed [m/s] if not done so already
-        if self.props_proc['average speed [m/s]'] == None:
-            self.proc_props()
-        # classifies bubble as inner stream if velocity is greater than cutoff
-        v = self.props_proc['average speed [m/s]']
+        # # computes average speed [m/s] if not done so already
+        # if self.props_proc['average flow speed [m/s]'] == None:
+        #     self.process_props()
+
+        # # first checks if object is an artifact (marked by inner_stream = -1)
+        # # not convex enough?
+        # if any( np.logical_and(
+        #             np.asarray(self.props_raw['solidity']) < min_solidity,
+        #             np.asarray(self.props_raw['area']) > min_size )
+        #         ) or \
+        # # too oblong?
+        #     any( np.logical_and(
+        #             np.asarray(self.props_raw['aspect ratio']) > max_aspect_ratio,
+        #             np.asarray([row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]) \
+        #             < self.metadata['R_i']*conv.m_2_um*self.metadata['pix_per_um']
+        #     ))
+        # # oriented off axis (orientation of skimage.regionprops is CCW from up direction)
+        #     any( np.logical_and(
+        #             np.abs(np.asarray(self.props_raw['orientation']) + np.pi/2) < max_orientation,
+        #             np.asarray(self.props_raw['area']) > min_size
+        #         ))
+        # # flowing backwards or flowing too fast
+        #     any( np.logical_or(
+        #             np.asarray(self.props_proc['speed [m/s]'] > 3*self.metadata['v_max'])
+        #     ))
 
         # if the bubble's aspect ratio is too large, classify as error (-1)
         if np.max(self.props_proc['aspect ratio']) >= max_aspect_ratio:
@@ -351,11 +437,11 @@ class Bubble(TrackedObject):
             # probably an error
             else:
                 inner = -1
-        elif 0 < v and v < v_interf and n_frames > 1:
+        elif 0 < v and v < self.metadata['v_interf'] and n_frames > 1:
             inner = 0
         # if velocity is faster than lower limit for inner stream, classify as
         # inner stream
-        elif (v >= v_interf) or (n_frames == 1):
+        elif (v >= self.metadata['v_interf']) or (n_frames == 1):
             inner = 1
         # otherwise, default value of -1 is set to indicate unclear classification
         else:
@@ -410,10 +496,10 @@ class Bubble(TrackedObject):
             return centroid_pred
 
 
-    def proc_props(self):
+    def process_props(self):
         """Processes data to compute processed properties, mostly averages."""
         # computes TrackedObject processed properties in the same way
-        super().proc_props()
+        super().process_props()
 
         # computes radius [um] as geometric mean of three diameters of the
         # bubble divided by 8 to get radius. Assumes symmetry about major axis
@@ -433,13 +519,24 @@ class Bubble(TrackedObject):
 
         # converts speed from pix/s to m/s (TrackedObject only computes speed in pix/s)
         pix_per_um = self.metadata['pix_per_um']
-        v_m_s = [v/pix_per_um*conv.um_2_m for v in self.props_proc['speed']]
-        self.props_proc['speed [m/s]'] = v_m_s
-        if len(v_m_s) > 0:
-            self.props_proc['average speed [m/s]'] = np.mean(v_m_s)
+        speed_m_s = [speed/pix_per_um*conv.um_2_m for speed in self.props_proc['speed']]
+        self.props_proc['speed [m/s]'] = speed_m_s
+        if len(speed_m_s) > 0:
+            self.props_proc['average speed [m/s]'] = np.mean(speed_m_s)
+
+        # computes speed along flow direction [m/s]
+        flow_dir = np.array(self.metadata['flow_dir'])
+        v_pix_s = self.compute_velocity()
+        # projects velocity onto flow direction and converts to [m/s]
+        flow_speed_m_s = [np.dot(flow_dir, v)/pix_per_um*conv.um_2_m for v in v_pix_s]
+        # only saves results if there are any to save
+        if len(flow_speed_m_s) > 0:
+            self.props_proc['flow speed [m/s]'] = flow_speed_m_s
+            self.props_proc['average flow speed [m/s]'] = np.mean(flow_speed_m_s)
 
 
     ### HELPER FUNCTIONS ###
+
     def offscreen_centroid(self, centroid):
         """
         Estimates previous centroid assuming just offscreen opposite flow
