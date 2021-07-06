@@ -24,7 +24,8 @@ import config as cfg
 def main():
 
     ####################### 0) PARSE INPUT ARGUMENTS ##########################
-    input_file, check, print_freq, replace, use_prev_bkgd = readin.parse_args()
+    input_file, check, print_freq, \
+    replace, use_prev_bkgd, remember_objects = readin.parse_args()
 
     ######################### 1) PRE-PROCESSING ################################
     # loads parameters
@@ -70,7 +71,8 @@ def main():
     track_kwargs, highlight_kwargs, \
     assign_kwargs = mh.collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, 
                                     row_lo, row_hi, v_max, v_interf, pix_per_um,
-                                    object_kwargs=object_kwargs)
+                                    object_kwargs=object_kwargs, 
+                                    remember_objects=remember_objects)
     # starts timer
     start_time = time.time()
     # tracks objects
