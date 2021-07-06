@@ -242,7 +242,8 @@ def get_frame_count(vid_path, end):
         case it's the number of frames in the video)
     """
     if end == -1:
-        final_frame_num = count_frames(vid_path)
+        # subtracts 1 because of 0-indexing
+        final_frame_num = count_frames(vid_path) - 1
     else:
         final_frame_num = end
 
