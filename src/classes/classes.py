@@ -472,9 +472,25 @@ class Bubble(TrackedObject):
         frames = self.props_raw['frame']
         centroids = self.props_raw['centroid']
 
+        # # processes properties for use in predicting centroid
+        if len(frames) > 1:
+            self.process_props()
+        
+        average_flow_speed_m_s = self.props_proc['average flow speed [m/s]']
+
         # same behavior if multiple or no centroids have been recorded
-        if len(centroids) != 1:
-            return super().predict_centroid(f)
+        if self.props_proc['average flow speed [m/s]'] is not None:
+            print('predicting centroid with average flow speed')
+            centroid_prev = centroids[-1]
+            f_prev = frames[-1]
+            d_flow_per_frame = average_flow_speed_m_s * \
+                                conv.m_2_um*self.metadata['pix_per_um'] / \
+                                self.metadata['fps']
+            centroid_pred = tuple(np.asarray(centroid_prev) + \
+                            d_flow_per_frame * (f - f_prev) * \
+                            np.asarray(self.metadata['flow_dir']))
+        elif len(centroids) != 1:
+            centroid_pred = super().predict_centroid(f)
         # otherwise, predicts centroid using knowledge of flow direction
         else:
             centroid = centroids[0]
@@ -493,7 +509,7 @@ class Bubble(TrackedObject):
             # predicts centroid for requested frame with linear fit
             centroid_pred = (a_r*f + b_r, a_c*f + b_c)
 
-            return centroid_pred
+        return centroid_pred
 
 
     def process_props(self):
