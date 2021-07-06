@@ -1,29 +1,29 @@
 input_name = testclassify # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
-eta_i = 0.01 # inner stream viscosity [Pa.s]
+eta_i = 0.05 # inner stream viscosity [Pa.s]
 eta_o = 4.815 # outer stream viscosity [Pa.s]
 L = 0.1 # length of observation capillary [m]
 R_o = 150 # outer radius of observation capillary [um]
 
 ###################### IMAGE-PROCESSING PARAMETERS #############################
-selem_dim = 2 # structuring element width in pixels
+selem_dim = 3 # structuring element width in pixels
 width_border = 3 # number of pixels along border to exclude
-num_frames_for_bkgd = 1000 # number of frames to average to compute the background
+num_frames_for_bkgd = 60 # number of frames to average to compute the background
 start = 0 # frame to start processing at
 end = -1 # frame to end processing at (not included)
 every =  1 # processes every this number of frames (1 means every frame)
-th = -1 #39 # threshold value for standard thresholding
-th_lo = -1 #19 # low threshold value for hysteresis thresholding
-th_hi = -1 #42 # high threshold value for hysteresis thresholding
-min_size_hyst = 2 # minimum size of object kept after hysteresis thresholding
-min_size_th = 2 # minimum size of object kept after standard thresholding
-min_size_reg = 2 # minimum size of object to be registered as a bubble
+th = 40 # threshold value for standard thresholding
+th_lo = 34 # low threshold value for hysteresis thresholding
+th_hi = 50 # high threshold value for hysteresis thresholding
+min_size_hyst = 5 # minimum size of object kept after hysteresis thresholding
+min_size_th = 5 # minimum size of object kept after standard thresholding
+min_size_reg = 5 # minimum size of object to be registered as a bubble
 camera = photron # photron if using Photron NOVA S6, chronos if using Chronos 1.4
 
 ############################# FILE PARAMETERS ##################################
 ### DON'T WRITE STRINGS WITH APOSTROPHES '' THEY WILL AUTOMATICALLY BE ADDED ###
-vid_subdir = sd301_co2/20210207_88bar/ # <polyol>_<gas>/yyyymmdd_<pressure>bar/
+vid_subdir = sd301_co2/20210331_45bar/ # <polyol>_<gas>/yyyymmdd_<pressure>bar/
 
 # video name should follow format required by fn.parse_vid_path:
 # hdr_0000_111_222_3333_44_55_6.mp4
@@ -35,4 +35,4 @@ vid_subdir = sd301_co2/20210207_88bar/ # <polyol>_<gas>/yyyymmdd_<pressure>bar/
 # 4: distance down stream (mm)
 # 5: magnification of objective lens (x)
 # 6: number of video (0-indexed, no leading zeros)
-vid_name = sd301_co2_15000_001_100_0335_79_04_10.mp4 # include ext
+vid_name = sd301_co2_40000_001_050_0150_95_04_9.avi # include ext

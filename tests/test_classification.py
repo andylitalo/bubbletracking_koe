@@ -26,7 +26,7 @@ import genl.main_helper as mh
 
 
 def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
-            min_size=20, max_orientation=np.pi/4, circle_aspect_ratio=1.1,
+            min_size=20, max_orientation=np.pi/8, circle_aspect_ratio=1.1,
             n_consec=3):
     """
     Classifies Bubble objects into different categories. Still testing to see
@@ -57,11 +57,17 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
     if obj.get_props('average flow speed [m/s]') == None:
         obj.process_props()
 
+    # determines which frames are worth looking at (large enough object, not on border)
+    worth_checking = np.logical_and(
+                            np.asarray(obj.get_props('area')) > min_size,
+                            np.logical_not(np.asarray(obj.get_props('on border')))
+                            )
+
     # first checks if object is an artifact (marked by inner_stream = -1)
     # not convex enough?
     if any( np.logical_and(
                 np.asarray(obj.get_props('solidity')) < min_solidity,
-                np.asarray(obj.get_props('area')) > min_size )
+                worth_checking )
             ):
         classifications['solid'] = False 
     else:
@@ -82,7 +88,7 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
                 np.logical_and(
                     np.abs(np.asarray(obj.get_props('orientation')) + np.pi/2) > max_orientation,
                     np.abs(np.asarray(obj.get_props('orientation')) - np.pi/2) > max_orientation),
-                np.asarray(obj.get_props('area')) > min_size )
+                worth_checking )
             ):
         classifications['oriented'] = False
     else:
@@ -108,7 +114,34 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
     return classifications
 
 
-def superpose_images(obj):
+def is_overlapping(bbox1, bbox2):
+    """
+    Checks if the bounding boxes given overlap.
+
+    Copied from https://www.geeksforgeeks.org/find-two-rectangles-overlap/
+    """
+    rmin1, cmin1, rmax1, cmax1 = bbox1
+    rmin2, cmin2, rmax2, cmax2 = bbox2
+
+    # To check if either rectangle is actually a line
+    # For example  :  l1 ={-1,0}  r1={1,1}  l2={0,-1}  r2={0,1}
+    if (cmin1 == cmax1 or rmin1 == rmax1 or cmin2 == cmax2 or rmin2 == rmax2):
+        # the line cannot have positive overlap
+        return False
+       
+     
+    # If one rectangle is on left side of other
+    if(cmin1 >= cmax2 or cmin2 >= cmax1):
+        return False
+ 
+    # If one rectangle is above other
+    if(rmin1 >= rmax2 or rmin2 >= rmax1):
+        return False
+ 
+    return True
+
+
+def superpose_images(obj, skip_overlaps=False):
     """
     Superposes images of an object onto one frame.
 
@@ -124,21 +157,37 @@ def superpose_images(obj):
         Image of object over time; each snapshot is superposed 
         (likely black-and-white)
     """
+    # gets dimensions of frame
     frame_dim = obj.get_metadata('frame_dim')
     # initializes image black
     im = np.zeros(frame_dim, dtype='uint8')
+
+    # initializes previous bounding box
+    bbox_prev = (0,0,0,0)
 
     # superposes image from each frame
     frame_list = obj.get_props('frame')
     for f in frame_list:
         # loads bounding box and image within it
-        row_min, col_min, row_max, col_max = obj.get_prop('bbox', f)
+        bbox = obj.get_prop('bbox', f)
+
+        # skips images that overlap if requested
+        if skip_overlaps:
+            if is_overlapping(bbox_prev, bbox):
+                continue
+            else:
+                bbox_prev = bbox
+
+        # loads image
         im_obj = obj.get_prop('image', f)
 
         # superposes object image on overall image
+        row_min, col_min, row_max, col_max = bbox
         im[row_min:row_max, col_min:col_max] = basic.cvify(im_obj)
     
     return im
+
+
 
 
 
@@ -147,10 +196,11 @@ def superpose_images(obj):
 
 def main():
     
-    input_subpaths = [#'sd301_co2/20210331_45bar/sd301_co2_40000_001_050_0150_95_04_9/',
+    input_subpaths = ['sd301_co2/20210331_45bar/sd301_co2_40000_001_050_0150_95_04_9/testclassify/data/input.txt',
                     'sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testclassify/data/input.txt']
     ext = 'jpg'
     replace = True
+    skip_overlaps = True
 
     input_filepaths = [os.path.join(cfg.output_dir, input_subpath) for input_subpath in input_subpaths]
 
@@ -181,11 +231,13 @@ def main():
             for prop, val in classifications.items():
                 if not val:
                     print('Object {0:d} is not {1:s}'.format(ID, prop))
+                    if prop=='oriented':
+                        print([pair for pair in zip(obj.get_props('orientation'), obj.get_props('on border'))])
 
             # print('Orientation of {0:d}'.format(ID))
             # print(obj.get_props('orientation'))
             # creates image of bubbles superposed on frame
-            im = superpose_images(obj)
+            im = superpose_images(obj, skip_overlaps=skip_overlaps)
             # saves image
             basic.save_image(im, os.path.join(figs_dir, '{0:d}.{1:s}'.format(ID, ext)))    
 
