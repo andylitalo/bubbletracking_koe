@@ -51,7 +51,8 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
     """
     # creates dictionary of classifications
     classifications = {'solid' : None, 'circular' : None, 'oriented' : None,
-                        'consecutive' : None, 'inner stream' : None}
+                        'consecutive' : None, 'inner stream' : None,
+                        'exited' : None}
 
     # computes average speed [m/s] if not done so already
     if obj.get_props('average flow speed [m/s]') == None:
@@ -100,16 +101,32 @@ def classify_test(obj, max_aspect_ratio=10, min_solidity=0.85,
     else:
         classifications['consecutive'] = True
 
-    # flowing backwards or flowing too fast
-    if any( np.logical_or(
-                np.asarray(obj.get_props('flow speed [m/s]')) < 0,
-                np.asarray(obj.get_props('speed [m/s]') > 3*obj.get_metadata('v_max')) )
-        ):
+    # flowing backwards
+    if any(np.asarray(obj.get_props('flow speed [m/s]')) < 0):
         classifications['inner stream'] = None
     elif any( np.asarray(obj.get_props('flow speed [m/s]')) > obj.get_metadata('v_interf')):
         classifications['inner stream'] = True
     else:
         classifications['inner stream'] = False
+
+    # exits properly from downstream side of frame
+    # farthest right column TODO -- determine coordinate of bbox from flow dir
+    col_max = obj.get_props('bbox')[-1][-1] 
+    # average flow speed [m/s]
+    average_flow_speed_m_s = obj.get_props('average flow speed [m/s]') 
+    # number of pixels traveled per frame along flow direction
+    if average_flow_speed_m_s is not None:
+        pix_per_frame_along_flow = average_flow_speed_m_s * conv.m_2_um * \
+                        obj.get_metadata('pix_per_um') / obj.get_metadata('fps')
+        # checks if the next frame of the object would reach the border or if the 
+        # last view of object is already on the border
+        if (col_max + pix_per_frame_along_flow < obj.get_metadata('frame_dim')[1]) and \
+                not obj.get_props('on border')[-1]:
+            classifications['exited'] = False 
+        else:
+            classifications['exited'] = True
+    else:
+        classifications['exited'] = False
 
     return classifications
 
@@ -231,11 +248,7 @@ def main():
             for prop, val in classifications.items():
                 if not val:
                     print('Object {0:d} is not {1:s}'.format(ID, prop))
-                    if prop=='oriented':
-                        print([pair for pair in zip(obj.get_props('orientation'), obj.get_props('on border'))])
 
-            # print('Orientation of {0:d}'.format(ID))
-            # print(obj.get_props('orientation'))
             # creates image of bubbles superposed on frame
             im = superpose_images(obj, skip_overlaps=skip_overlaps)
             # saves image
