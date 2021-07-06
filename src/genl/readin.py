@@ -46,6 +46,8 @@ def parse_args():
                     ' Otherwise, if 0, does not replace data file if present.')
     ap.add_argument('-b', '--use_prev_bkgd', default=0, type=int,
                     help='If 1, uses previous background if data available.')
+    ap.add_argument('-m', '--remember', default=0, type=int,
+                    help='If 1, remembers objects by extrapolating centroid.')
     args = vars(ap.parse_args())
 
     # extracts and formats individual parameters
@@ -54,8 +56,9 @@ def parse_args():
     print_freq = args['freq']
     replace = bool(args['replace'])
     use_prev_bkgd = bool(args['use_prev_bkgd'])
+    remember_objects = bool(args['remember'])
 
-    return input_file, check, print_freq, replace, use_prev_bkgd
+    return input_file, check, print_freq, replace, use_prev_bkgd, remember_objects
 
 
 def load_params(input_file):
