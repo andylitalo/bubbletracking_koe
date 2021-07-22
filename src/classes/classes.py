@@ -372,7 +372,7 @@ class Bubble(TrackedObject):
         # uses TrackedObject init fn to lay foundation for the object
         super().__init__(ID, fps, frame_dim, props_raw=props_raw, **metadata)
         # adds Bubble-specific properties
-        self.props_proc.update({'radius' : [], 'average radius' : None, 
+        self.props_proc.update({'radius [um]' : [], 'average radius [um]' : None, 
                         'speed [m/s]' : [], 'average speed [m/s]' : None, 
                         'flow speed [m/s]' : [], 
                         'average flow speed [m/s]' : None, 
@@ -583,21 +583,9 @@ class Bubble(TrackedObject):
         # computes TrackedObject processed properties in the same way
         super().process_props()
 
-        # computes radius [um] as geometric mean of three diameters of the
-        # bubble divided by 8 to get radius. Assumes symmetry about major axis
-        # such that diameter in the other two dimensions is the minor axis
-        # uses width and height if major and minor axes were not computed
-        if (len(self.props_raw['major axis']) == 0) or \
-            (len(self.props_raw['minor axis']) == 0):
-            major_list = [col_max - col_min for _, col_min, _, col_max in self.props_raw['bbox']]
-            minor_list = [row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]
-        else:
-            major_list = self.props_raw['major axis']
-            minor_list = self.props_raw['minor axis']
-        self.props_proc['radius'] = [((major*minor*minor)**(1.0/3)/8) / \
-                                    self.metadata['pix_per_um'] for major, minor in\
-                                    zip(major_list, minor_list)]
-        self.props_proc['average radius'] = np.mean(self.props_proc['radius'])
+        # computes radius [um]
+        self.props_proc['radius [um]'] = self.estimate_radius()
+        self.props_proc['average radius [um]'] = np.mean(self.props_proc['radius [um]'])
 
         # converts speed from pix/s to m/s (TrackedObject only computes speed in pix/s)
         pix_per_um = self.metadata['pix_per_um']
@@ -618,6 +606,32 @@ class Bubble(TrackedObject):
 
 
     ### HELPER FUNCTIONS ###
+
+    def estimate_radius(self):
+        """
+        Estimates radius [um] as geometric mean of three diameters of the
+        bubble, then divides result by 2 to convert from diameter to radius. 
+        Assumes symmetry about major axis (due to general alignment of major
+        axis along flow axis and general cylindrical symmetry around flow axis)
+        such that diameter in the other two dimensions is the minor axis
+        """
+        # uses width and height if major and minor axes were not computed
+        if (len(self.props_raw['major axis']) == 0) or \
+            (len(self.props_raw['minor axis']) == 0):
+            major_list = [col_max - col_min for _, col_min, _, col_max in self.props_raw['bbox']]
+            minor_list = [row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]
+        else:
+            major_list = self.props_raw['major axis']
+            minor_list = self.props_raw['minor axis']
+
+        # takes geometric mean of principal axes of ellipsoid (assumes two are minor)
+        # divides by 2 to convert from diameter -> radius
+        radius = [((major*minor*minor)**(1.0/3)/2) / \
+                                    self.metadata['pix_per_um'] for major, minor in\
+                                    zip(major_list, minor_list)]
+        
+        return radius 
+
 
     def offscreen_centroid(self, centroid):
         """
