@@ -35,7 +35,7 @@ def parse_args():
     """Parses arguments provided in command line into function parameters."""
     ap = argparse.ArgumentParser(
         description='Check quality of highlighting objects.')
-    ap.add_argument('-s', '--skip_blanks', default=1,
+    ap.add_argument('-s', '--skip_blanks', default=1, type=int,
                     help='If 1, skips images without objects detected.')
     ap.add_argument('-b', '--brightness', default=3.0, type=float,
                     help='Factor to multiply image brightness by.')
@@ -43,10 +43,10 @@ def parse_args():
                     help='Extension for saved images (no apostrophes).')
     ap.add_argument('-i', '--input_file', default='input.txt',
                     help='Name of file with input parameters.')
-    ap.add_argument('-c', '--color_object', default=1,
+    ap.add_argument('-c', '--color_object', default=1, type=int,
                     help='If 1, objects will be colored in figure.')
     ap.add_argument('--offset', default=5, type=int, help='Offset of labels to the right.')
-    ap.add_argument('-q', '--quiet', default=False, type=bool,
+    ap.add_argument('-q', '--quiet', default=False, type=int,
                     help='If True, will not print out success report upon saving image.')
     args = vars(ap.parse_args())
 
@@ -195,7 +195,7 @@ def highlight_image(image, f, highlight_method, metadata, objects, IDs,
         frame_disp = fn.one_2_uint8(skimage.color.label2rgb(frame_relabeled,
                                             image=frame_adj, bg_label=0))
     else:
-        frame_disp = fn.one_2_uint8(frame_relabeled)
+        frame_disp = frame_adj
 
     # prints ID number of object to the upper-right of the centroid
     # this must be done after image is colored
@@ -324,7 +324,7 @@ def main():
     brightness = args['brightness']
     ext = args['ext']
     input_file = args['input_file']
-    color_object = args['color_object']
+    color_object = bool(args['color_object'])
     offset = args['offset']
     quiet = args['quiet']
 
