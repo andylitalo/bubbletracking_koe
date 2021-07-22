@@ -249,7 +249,7 @@ def get_mask(vid_path, check=True):
     return mask_data, flow_dir, row_lo, row_hi 
 
 
-def get_paths(p, replace):
+def get_paths(p, replace=True):
     """
     Gets directories and paths to data.
 
@@ -257,8 +257,9 @@ def get_paths(p, replace):
     ----------
     p : dictionary
         Contains parameters from input file (see `genl/readin.py`)
-    replace : bool
-        If True, replaces/overwrites existing data if present
+    replace : bool, optional
+        If True and file exists in destination, will set `stop` to `True`
+        to warn the user to stop before overwriting files.
 
     Returns
     -------
@@ -267,7 +268,8 @@ def get_paths(p, replace):
     vid_dir, data_dir, figs_dir : string
         Paths to directories containing video file, data file, and figures
     stop : bool
-        If True, something indicated that the analysis should stop
+        If True, something indicated that the analysis should stop (e.g.,
+        file present and replace = False, invalid frame range requested)
     """
     # initially assumes analysis should not be stopped
     stop = False
@@ -306,7 +308,7 @@ def get_paths(p, replace):
 
 
 def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs, 
-                vid_path, input_path, data_path):
+                vid_path, input_path, data_path, dist=False, dist_tag='_dist'):
     """
     Saves data and metadata from object-tracking.
 
@@ -323,16 +325,25 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
         See CvVidProc API for more details.
     vid_path, input_path, data_path : string
         Filepaths to video analyzed, input file, and data saved
+    dist : bool, optional
+        If True, will *also* save a distributable version of the data, i.e., 
+        without any classes or objects, so it can be unpickled in any
+        Python environment. Default False
+    dist_tag : string, optional
+        Characters added to the end of `datapath` (before extension) 
+        to indicate that data file is distributable. Default '_dist'
 
     Returns nothing.
     """
     # collects metadata -- especially adds highlight_kwargs for quick highlight call
-    metadata = {'frame_IDs' : frame_IDs, 'highlight_kwargs' : highlight_kwargs}
+    metadata = {'frame_IDs' : frame_IDs, 
+                'highlight_kwargs' : highlight_kwargs, 
+                'vid_path' : vid_path}
     param_dicts = (p, track_kwargs, assign_kwargs)
     for d in param_dicts:
         for key in d:
             metadata[key] = d[key]
-        
+
     # stores data
     data = {}
     data['objects'] = objs
@@ -350,6 +361,21 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
     # saves data
     with open(data_path, 'wb') as f:
         pkl.dump(data, f)
+
+    if dist:
+        # converts objects to dictionaries for wider compatibility
+        d_objs = {}
+        for ID, obj in objs.items():
+            d_objs[ID] = obj.to_dict()
+        # replaces objects in data with dictionaries
+        data['objects'] = d_objs
+
+        # creates data path to indicate distributability
+        data_path_dist = data_path[:-4] + dist_tag + data_path[-4:]
+
+        # saves distributable data
+        with open(data_path_dist, 'wb') as f:
+            pkl.dump(data, f)
 
     return 
 
