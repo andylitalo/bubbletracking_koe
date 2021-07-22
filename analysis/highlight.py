@@ -89,7 +89,7 @@ def bubble_label_color(bubble, f, std_color=cfg.white,
     return color
 
 
-def label_objects_in_frame(objects, IDs, f, frame_labeled):
+def label_objects_in_frame(objs, IDs, f, frame_labeled):
     """
     Labels the objects in the given frame based on their ID number
     (hopefully this ensures that the object remains labeled with the 
@@ -97,7 +97,7 @@ def label_objects_in_frame(objects, IDs, f, frame_labeled):
 
     Parameters
     ----------
-    objects : dictionary
+    objs : dictionary
         Dictionary of TrackedObject objects, indexed by ID #
     IDs : list of ints
         List of ID #s of objects in the given frame
@@ -121,7 +121,7 @@ def label_objects_in_frame(objects, IDs, f, frame_labeled):
     for ID in IDs:
 
         # finds label associated with the object with this id
-        rc, cc = objects[ID].get_prop('centroid', f)
+        rc, cc = objs[ID].get_prop('centroid', f)
         label = improc.find_label(frame_labeled, rc, cc)
 
         # re-indexes from 1-255 for proper coloration by label2rgb
@@ -134,7 +134,7 @@ def label_objects_in_frame(objects, IDs, f, frame_labeled):
 
 ################################## PRIMARY FUNCTIONS ###################################
 
-def highlight_image(image, f, highlight_method, metadata, objects, IDs,
+def highlight_image(image, f, highlight_method, metadata, objs, IDs,
                     brightness=3.0, color_object=True, offset=5,
                     label_color_method=bubble_label_color, label_kwargs={}):
     """
@@ -148,7 +148,7 @@ def highlight_image(image, f, highlight_method, metadata, objects, IDs,
         frame number in video
     metadata : dictionary
         Metadata of the video (see `src/main.py` for contents)
-    objects : dictionary
+    objs : dictionary
         Dictionary of tracked objects, indexed by ID #
         See TrackedObject class in `classes/classes.py` for more details
     IDs : list
@@ -186,7 +186,7 @@ def highlight_image(image, f, highlight_method, metadata, objects, IDs,
     #num_labels, frame_labeled, _, _ = cv2.connectedComponentsWithStats(obj)
 
     # labels objects in frame
-    frame_relabeled = label_objects_in_frame(objects, IDs, f, frame_labeled)
+    frame_relabeled = label_objects_in_frame(objs, IDs, f, frame_labeled)
     
     # brightens original image
     frame_adj = basic.adjust_brightness(frame, brightness)
@@ -201,7 +201,7 @@ def highlight_image(image, f, highlight_method, metadata, objects, IDs,
     # this must be done after image is colored
     for ID in IDs:
         # grabs object with present ID
-        obj = objects[ID]
+        obj = objs[ID]
 
         # determines color of the label
         color = label_color_method(obj, f, **label_kwargs)
@@ -277,7 +277,7 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
         with open(data_path, 'rb') as f:
             data = pkl.load(f)
             metadata = data['metadata']
-            objects = data['objects']
+            objs = data['objects']
             frame_IDs = data['frame IDs']
     except:
         print('Failed to load {0:s}--is there a file at this location?'.format(data_path))
@@ -300,7 +300,7 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
 
         # highlights and labels objects in frame frame
         im_labeled = highlight_image(frame, f, cfg.highlight_method,
-                                metadata, objects, IDs,
+                                metadata, objs, IDs,
                                 brightness, color_object, offset,
                                 label_color_method=label_color_method,
                                 label_kwargs=label_kwargs)
