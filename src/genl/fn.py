@@ -27,18 +27,6 @@ def bool_2_uint8(bool_arr):
     return (255*bool_arr).astype('uint8')
 
 
-def format_float(i):
-    """Formats string representation of float using "-" as decimal point."""
-    result = 0
-    if '-' in i:
-        val, dec = i.split('-')
-        result = int(val) + int(dec)/10.0**(len(dec))
-    else:
-        result = int(i)
-
-    return result
-
-
 def get_fps(vid_path, prefix):
     """
     Gets the frames per second from the path of the video.
@@ -120,14 +108,26 @@ def parse_vid_path(vid_path):
 
     params = {'prefix' : prefix,
               'fps' : int(tokens[i]),
-              'exp_time' : int(tokens[i+1]),
-              'Q_i' : format_float(tokens[i+2]),
+              'exp_time' : read_dash_decimal(tokens[i+1]),
+              'Q_i' : read_dash_decimal(tokens[i+2]),
               'Q_o' : int(tokens[i+3]),
               'd' : int(tokens[i+4]),
               'mag' : int(tokens[i+5]),
               'num' : int(tokens[i+6])}
 
     return params
+
+
+def read_dash_decimal(num_str):
+    """Reads string as float where dash '-' is used as decimal point."""
+    result = 0
+    if '-' in num_str:
+        val, dec = num_str.split('-')
+        result = int(val) + int(dec)/10.0**(len(dec))
+    else:
+        result = int(num_str)
+
+    return result
 
 
 def read_input_file(input_path, split_char='=', cmnt_char='#'):
