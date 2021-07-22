@@ -25,7 +25,7 @@ def main():
 
     ####################### 0) PARSE INPUT ARGUMENTS ##########################
     input_file, check, print_freq, \
-    replace, use_prev_bkgd, remember_objects = readin.parse_args()
+    replace, use_prev_bkgd, remember_objects, dist = readin.parse_args()
 
     ######################### 1) PRE-PROCESSING ################################
     # loads parameters
@@ -55,7 +55,7 @@ def main():
         # only updates thresholds that were given as -1
         p = mh.update_thresholds(p, th, th_lo, th_hi)
 
-        print(p['th'], p['th_lo'], p['th_hi'])
+        print('Thresholds:', p['th'], p['th_lo'], p['th_hi'])
 
     # computes flow properties
     dp, R_i, v_max, v_interf, \
@@ -95,13 +95,13 @@ def main():
         # computes average speed [m/s]
         obj.process_props()
         # classifies object as inner or outer stream (or error)
-        obj.classify(v_interf)
+        obj.classify()
 
     ########################## 4) SAVE RESULTS #################################
     # stores metadata (I will not store video parameters or parameters from the
     # input file since they are stored elsewhere already)
     mh.save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs, 
-                vid_path, input_path, data_path)
+                vid_path, input_path, data_path, dist=dist)
 
     return
 

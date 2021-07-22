@@ -146,6 +146,14 @@ class TrackedObject:
             print('Property {0:s} not found in object. Returning None.'.format(prop))
             return None
 
+    def to_dict(self):
+        """Sends object's stored properties to a dictionary."""
+        d = {'metadata' : self.metadata,
+             'props_raw' : self.props_raw,
+             'props_proc' : self.props_proc}
+             
+        return d
+
     ###### MUTATORS ########
 
     def add_props(self, props):
@@ -364,25 +372,45 @@ class Bubble(TrackedObject):
         # uses TrackedObject init fn to lay foundation for the object
         super().__init__(ID, fps, frame_dim, props_raw=props_raw, **metadata)
         # adds Bubble-specific properties
-        self.props_proc['radius'] = []
-        self.props_proc['average radius'] = None
-        self.props_proc['speed [m/s]'] = []
-        self.props_proc['average speed [m/s]'] = None
-        self.props_proc['flow speed [m/s]'] = []
-        self.props_proc['average flow speed [m/s]'] = None
-        # inner stream is 0 if bubble is likely in outer stream, 1 if
-        # likely in inner stream, and -1 if unknown or not evaluated yet
-        self.props_proc['inner stream'] = -1
+        self.props_proc.update({'radius' : [], 'average radius' : None, 
+                        'speed [m/s]' : [], 'average speed [m/s]' : None, 
+                        'flow speed [m/s]' : [], 
+                        'average flow speed [m/s]' : None, 
+                        'inner stream' : None,
+                        'solid' : None, 'circular' : None, 'oriented' : None,
+                        'consecutive' : None, 'inner stream' : None,
+                        'exited' : None, 'growing' : None
+                        })
 
        
     ###### MUTATORS ########
-    def classify(self, max_aspect_ratio=10, min_solidity=0.9,
-                min_size=10, max_orientation=np.pi/10, circle_aspect_ratio=1.1):
+    def classify(self,  max_aspect_ratio=10, min_solidity=0.85,
+            min_size=50, max_orientation=np.pi/8, circle_aspect_ratio=1.1,
+            n_consec=3):
         """
         Classifies bubble as inner or outer stream based on velocity cutoff.
         N.B.: If there is no inner stream (inner stream flow rate Q_i = 0),
         then the velocity v_interf will be computed to be nan, in which case this
         method will leave the classification as is.
+
+        ***Currently implemented in tests/test_classification.py***
+
+        Parameters are currently guesses. ML would be a better method for selecting them.
+
+        Turn this into ML with the following labels (sequences of):
+        - Aspect Ratio
+        - Orientation
+        - Area
+        - Rate of area growth
+        - Speed along flow direction
+        - Solidity
+        - *averages thereof
+        - predicted max speed
+        - width of inner stream
+        - height
+
+        ***Ask Chris about this! TODO
+        ***CHALLENGE: how do I classify large, elongated bubbles separately? TODO
 
         Parameters
         ----------
@@ -399,55 +427,94 @@ class Bubble(TrackedObject):
 
         Returns nothing.
         """
+        return
         # # computes average speed [m/s] if not done so already
-        # if self.props_proc['average flow speed [m/s]'] == None:
+        # if self.proc_props['average flow speed [m/s]'] == None:
         #     self.process_props()
+
+        # # determines which frames are worth looking at (large enough object, not on border)
+        # worth_checking = np.logical_and(
+        #                         np.asarray(self.props_raw['area']) > min_size,
+        #                         np.logical_not(np.asarray(self.props_raw['on border']))
+        #                         )
 
         # # first checks if object is an artifact (marked by inner_stream = -1)
         # # not convex enough?
         # if any( np.logical_and(
-        #             np.asarray(self.props_raw['solidity']) < min_solidity,
-        #             np.asarray(self.props_raw['area']) > min_size )
-        #         ) or \
+        #             np.asarray(self.props_raw('solidity')) < min_solidity,
+        #             worth_checking )
+        #         ):
+        #     self.props_proc['solid'] = False 
+        # else:
+        #     self.props_proc['solid']= True 
+
         # # too oblong?
-        #     any( np.logical_and(
-        #             np.asarray(self.props_raw['aspect ratio']) > max_aspect_ratio,
+        # if any( np.logical_and(
+        #             np.asarray(self.props_proc['aspect ratio']) > max_aspect_ratio,
         #             np.asarray([row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]) \
-        #             < self.metadata['R_i']*conv.m_2_um*self.metadata['pix_per_um']
-        #     ))
+        #             < self.metadata['R_i']*conv.m_2_um*self.metadata['pix_per_um'] )
+        #     ):
+        #     self.props_proc['circular'] = False 
+        # else:
+        #     self.props_proc['circular'] = True 
+
         # # oriented off axis (orientation of skimage.regionprops is CCW from up direction)
-        #     any( np.logical_and(
-        #             np.abs(np.asarray(self.props_raw['orientation']) + np.pi/2) < max_orientation,
-        #             np.asarray(self.props_raw['area']) > min_size
-        #         ))
-        # # flowing backwards or flowing too fast
-        #     any( np.logical_or(
-        #             np.asarray(self.props_proc['speed [m/s]'] > 3*self.metadata['v_max'])
-        #     ))
+        # if any( np.logical_and(
+        #             np.logical_and(
+        #                 np.abs(np.asarray(self.props_proc['orientation']) + np.pi/2) > max_orientation,
+        #                 np.abs(np.asarray(self.props_proc['orientation']) - np.pi/2) > max_orientation),
+        #             worth_checking )
+        #         ):
+        #     self.props_proc['oriented'] = False
+        # else:
+        #     self.props_proc['oriented'] = True 
 
-        # if the bubble's aspect ratio is too large, classify as error (-1)
-        if np.max(self.props_proc['aspect ratio']) >= max_aspect_ratio:
-            inner = -1
-        # if no velocity recorded, classifies as inner stream (assumes too fast
-        # to be part of outer stream)
-        elif v == None:
-            if n_frames == 1:
-                inner = 1
-            # unless there are more than 1 frames, in which case there is
-            # probably an error
-            else:
-                inner = -1
-        elif 0 < v and v < self.metadata['v_interf'] and n_frames > 1:
-            inner = 0
-        # if velocity is faster than lower limit for inner stream, classify as
-        # inner stream
-        elif (v >= self.metadata['v_interf']) or (n_frames == 1):
-            inner = 1
-        # otherwise, default value of -1 is set to indicate unclear classification
-        else:
-            inner = -1
+        # # checks that the bubble appears in a minimum number of consecutive frames
+        # if not self.appears_in_consec_frames(n_consec=n_consec):
+        #     self.props_proc['consecutive'] = False 
+        # else:
+        #     self.props_proc['consecutive'] = True
 
-        self.props_proc['inner stream'] = inner
+        # # flowing backwards
+        # if any(np.asarray(self.props_proc['flow speed [m/s]']) < 0):
+        #     self.props_proc['inner stream'] = None
+        # elif any( np.asarray(self.props_proc['flow speed [m/s]']) > self.metadata['v_interf']):
+        #     self.props_proc['inner stream'] = True
+        # else:
+        #     self.props_proc['inner stream'] = False
+
+        # # exits properly from downstream side of frame
+        # # farthest right column TODO -- determine coordinate of bbox from flow dir
+        # col_max = self.props_raw['bbox'][-1][-1] 
+        # # average flow speed [m/s]
+        # average_flow_speed_m_s = self.props_proc['average flow speed [m/s]']
+        # # number of pixels traveled per frame along flow direction
+        # if average_flow_speed_m_s is not None:
+        #     pix_per_frame_along_flow = average_flow_speed_m_s * conv.m_2_um * \
+        #                     self.metadata['pix_per_um'] / self.metadata['fps']
+        #     # checks if the next frame of the object would reach the border or if the 
+        #     # last view of object is already on the border
+        #     if (col_max + pix_perf_frame_along_flow < self.metadata['frame_dim'][1]) and \
+        #             not self.props_raw['on border'][-1]:
+        #         self.props_proc['exited'] = False 
+        #     else:
+        #         self.props_proc['exited'] = True
+        # else:
+        #     self.props_proc['exited'] = False
+
+        # # growing over time TODO -- is `worth_checking` to strict?
+        # frames = np.asarray(self.props_raw['frame'])
+        # areas = np.asarray(self.props_raw['area'])
+        # if len(frames[worth_checking]) > 1:
+        #     growing = np.polyfit(frames[worth_checking], areas[worth_checking], 1)[0] >= 0
+        # else:
+        #     growing = True
+        # if not growing:
+        #     self.props_proc['growing'] = False
+        # else:
+        #     self.props_proc['growing'] = True
+
+        # return
 
 
     def predict_centroid(self, f):
@@ -480,7 +547,6 @@ class Bubble(TrackedObject):
 
         # same behavior if multiple or no centroids have been recorded
         if self.props_proc['average flow speed [m/s]'] is not None:
-            print('predicting centroid with average flow speed')
             centroid_prev = centroids[-1]
             f_prev = frames[-1]
             d_flow_per_frame = average_flow_speed_m_s * \

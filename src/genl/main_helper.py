@@ -11,6 +11,7 @@ import pickle as pkl
 import os
 import shutil
 import glob
+import inspect
 
 # imports custom libraries
 # from libs
@@ -335,10 +336,11 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
 
     Returns nothing.
     """
-    # collects metadata -- especially adds highlight_kwargs for quick highlight call
+    # collects metadata -- separately adds highlight_kwargs for quick highlight call
     metadata = {'frame_IDs' : frame_IDs, 
                 'highlight_kwargs' : highlight_kwargs, 
                 'vid_path' : vid_path}
+    # adds remaining metadata from parameter dictionary and other keyword arguments
     param_dicts = (p, track_kwargs, assign_kwargs)
     for d in param_dicts:
         for key in d:
@@ -363,12 +365,26 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
         pkl.dump(data, f)
 
     if dist:
+
         # converts objects to dictionaries for wider compatibility
         d_objs = {}
         for ID, obj in objs.items():
             d_objs[ID] = obj.to_dict()
+            
         # replaces objects in data with dictionaries
         data['objects'] = d_objs
+
+        # removes classes and functors from metadata
+        metadata_redacted = {}
+        for key, item in metadata.items():
+            # checks if item is a function or a class
+            if not callable(item) and not inspect.isclass(item):
+                metadata_redacted[key] = item
+            else:
+                print(key, item)
+
+        # loads redacted metadata
+        data['metadata'] = metadata_redacted
 
         # creates data path to indicate distributability
         data_path_dist = data_path[:-4] + dist_tag + data_path[-4:]
