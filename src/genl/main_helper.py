@@ -337,8 +337,7 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
     Returns nothing.
     """
     # collects metadata -- separately adds highlight_kwargs for quick highlight call
-    metadata = {'frame_IDs' : frame_IDs, 
-                'highlight_kwargs' : highlight_kwargs, 
+    metadata = {'highlight_kwargs' : highlight_kwargs, 
                 'vid_path' : vid_path}
     # adds remaining metadata from parameter dictionary and other keyword arguments
     param_dicts = (p, track_kwargs, assign_kwargs)
@@ -364,6 +363,7 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
     with open(data_path, 'wb') as f:
         pkl.dump(data, f)
 
+    ### Saves distributable data file (no classes or fns) 
     if dist:
 
         # converts objects to dictionaries for wider compatibility
@@ -381,7 +381,8 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
             if not callable(item) and not inspect.isclass(item):
                 metadata_redacted[key] = item
             else:
-                print(key, item)
+                # converts to string (better than nothing)
+                metadata_redacted[key] = str(item)
 
         # loads redacted metadata
         data['metadata'] = metadata_redacted
