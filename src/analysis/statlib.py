@@ -142,12 +142,13 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
     # loads rows to crop from mask
 
     while(cap.isOpened()):
-        # reads current frame
-        ret, frame = cap.read()
-
         # skips every "every" number of frames
         if (f - start) % every != 0:
+            f += 1
             continue
+
+        # reads current frame
+        ret, frame = cap.read()
 
         # stops at video or user-specified end frame
         if not ret or f >= end:
@@ -157,14 +158,16 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = mask.mask_image(frame_gray, mask_data['mask'])
         # crops frame
-        frame_cropped = frame[row_lo:row_hi]
+        frame_cropped = frame[row_lo:row_hi, :]
 
         # loads data for statistics
         signed_diff = frame_cropped.astype(int) - bkgd.astype(int)
-        mean_list += [np.mean(signed_diff)]
-        mean_sq_list += [np.mean(signed_diff**2)]
-        stdev_list += [np.std(signed_diff)]
-        min_val_list += [np.min(signed_diff)]
+        # ensures only evaluates points in the mask
+        in_mask = np.ones(mask_data['mask'].astype(bool)[row_lo:row_hi, :].shape, dtype=int)
+        mean_list += [np.mean(signed_diff[in_mask])]
+        mean_sq_list += [np.mean(signed_diff[in_mask]**2)]
+        stdev_list += [np.std(signed_diff[in_mask])]
+        min_val_list += [np.min(signed_diff[in_mask])]
 
         # increments frame number
         f += 1
