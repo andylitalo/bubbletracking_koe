@@ -266,9 +266,39 @@ def is_color(im):
     """Returns True if the image is a color image (3 channels) and false if not."""
     return len(im.shape) == 3
 
+
+def is_overlapping(bbox1, bbox2):
+    """
+    Checks if the bounding boxes given overlap.
+
+    Copied from https://www.geeksforgeeks.org/find-two-rectangles-overlap/
+    """
+    rmin1, cmin1, rmax1, cmax1 = bbox1
+    rmin2, cmin2, rmax2, cmax2 = bbox2
+
+    # To check if either rectangle is actually a line
+    # For example  :  l1 ={-1,0}  r1={1,1}  l2={0,-1}  r2={0,1}
+    if (cmin1 == cmax1 or rmin1 == rmax1 or cmin2 == cmax2 or rmin2 == rmax2):
+        # the line cannot have positive overlap
+        return False
+       
+     
+    # If one rectangle is on left side of other
+    if(cmin1 >= cmax2 or cmin2 >= cmax1):
+        return False
+ 
+    # If one rectangle is above other
+    if(rmin1 >= rmax2 or rmin2 >= rmax1):
+        return False
+ 
+    return True
+    
     
 def load_frame(vid_path, num):
-    """Loads frame from video using OpenCV and prepares for display in Bokeh."""
+    """
+    Loads frame from video using OpenCV. 
+    Slower than `read_frame()` because it reloads the video every time.
+    """
     cap = cv2.VideoCapture(vid_path)
     frame = read_frame(cap, num)
 
