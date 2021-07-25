@@ -251,6 +251,9 @@ class TrackedObject:
         # sets velocity at first frame to be the same as the second
         if len(v_list) > 0:
             v_list.insert(0, v_list[0])
+        # if the object only appeared for one frame, record its velocity as 0
+        else:
+            v_list = [(0, 0)]
 
         return v_list
 
@@ -342,7 +345,7 @@ class Bubble(TrackedObject):
             Speed converted from pix/s to m/s using pix_per_um conversion
         - average speed [m/s] : float
             average of speed [m/s]
-        - inner stream : int
+        - inner stream : list of ints
             -1 --> error, 0 --> bubble is in the outer stream, 1 --> bubble
             is in the inner stream of microfluidic sheath flow
 
@@ -376,7 +379,6 @@ class Bubble(TrackedObject):
                         'speed [m/s]' : [], 'average speed [m/s]' : None, 
                         'flow speed [m/s]' : [], 
                         'average flow speed [m/s]' : None, 
-                        'inner stream' : None,
                         'solid' : None, 'circular' : None, 'oriented' : None,
                         'consecutive' : None, 'inner stream' : None,
                         'exited' : None, 'growing' : None
@@ -579,7 +581,7 @@ class Bubble(TrackedObject):
             self.props_proc['average speed [m/s]'] = np.mean(speed_m_s)
 
         # computes speed along flow direction [m/s]
-        flow_dir = np.array(self.metadata['flow_dir'])
+        flow_dir = np.asarray(self.metadata['flow_dir'])
         v_pix_s = self.compute_velocity()
         # projects velocity onto flow direction and converts to [m/s]
         flow_speed_m_s = [np.dot(flow_dir, v)/pix_per_um*conv.um_2_m for v in v_pix_s]
