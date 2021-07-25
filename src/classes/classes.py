@@ -393,7 +393,7 @@ class Bubble(TrackedObject):
         then the velocity v_interf will be computed to be nan, in which case this
         method will leave the classification as is.
 
-        ***Currently implemented in tests/test_classification.py***
+        ***Based on testing in tests/test_classification.py***
 
         Parameters are currently guesses. ML would be a better method for selecting them.
 
@@ -427,94 +427,78 @@ class Bubble(TrackedObject):
 
         Returns nothing.
         """
+        # computes average speed [m/s] if not done so already
+        if self.get_props('average flow speed [m/s]') == None:
+            self.process_props()
+
+        # determines which frames are worth looking at (large enough object, not on border)
+        worth_checking = np.logical_and(
+                                np.asarray(self.get_props('area')) > min_size,
+                                np.logical_not(np.asarray(self.get_props('on border')))
+                                )
+
+        # first checks if object is an artifact (marked by inner_stream = -1)
+        # not convex enough?
+        # TODO -- scale solidity requirement by size (currently lets through many non-solid large bubbles)
+        self.props_proc['solid'] = np.logical_not(np.logical_and(
+                    np.asarray(self.get_props('solidity')) < min_solidity,
+                    worth_checking ))
+
+        # too oblong?
+        self.props_proc['circular'] = np.logical_not(np.logical_and(
+                    np.asarray(self.get_props('aspect ratio')) > max_aspect_ratio,
+                    np.asarray([row_max - row_min for row_min, _, row_max, _ in self.get_props('bbox')]) \
+                    < self.get_metadata('R_i')*conv.m_2_um*self.get_metadata('pix_per_um') ))
+
+        # oriented off axis (orientation of skimage.regionprops is CCW from up direction)
+        self.props_proc['oriented'] = np.logical_not(np.logical_and(
+                    np.logical_and(
+                        np.abs(np.asarray(self.get_props('orientation')) + np.pi/2) > max_orientation,
+                        np.abs(np.asarray(self.get_props('orientation')) - np.pi/2) > max_orientation),
+                    worth_checking ))
+
+        # checks that the bubble appears in a minimum number of consecutive frames
+        if self.appears_in_consec_frames(n_consec=n_consec):
+            self.props_proc['consecutive'] = np.ones([len(self.get_props('frame'))])
+        else:
+            self.props_proc['consecutive'] = np.zeros([len(self.get_props('frame'))])
+
+        # flowing backwards
+        self.props_proc['inner stream'] = np.asarray(self.get_props('flow speed [m/s]')) > \
+                                                                 self.get_metadata('v_interf')
+
+        # exits properly from downstream side of frame
+        # farthest right column TODO -- determine coordinate of bbox from flow dir
+        col_max = self.get_props('bbox')[-1][-1] 
+        # average flow speed [m/s]
+        average_flow_speed_m_s = self.get_props('average flow speed [m/s]') 
+        # number of pixels traveled per frame along flow direction
+        if average_flow_speed_m_s is not None:
+            pix_per_frame_along_flow = average_flow_speed_m_s * conv.m_2_um * \
+                            self.get_metadata('pix_per_um') / self.get_metadata('fps')
+            # checks if the next frame of the object would reach the border or if the 
+            # last view of object is already on the border
+            if (col_max + pix_per_frame_along_flow < self.get_metadata('frame_dim')[1]) and \
+                    not self.get_props('on border')[-1]:
+                self.props_proc['exited'] = np.zeros([len(self.get_props('frame'))])
+            else:
+                self.props_proc['exited'] = np.ones([len(self.get_props('frame'))])
+        else:
+            self.props_proc['exited'] = np.zeros([len(self.get_props('frame'))])
+
+        # growing over time
+        frames = np.asarray(self.get_props('frame'))
+        areas = np.asarray(self.get_props('area'))
+        if len(frames[worth_checking]) > 1:
+            growing = np.polyfit(frames[worth_checking], areas[worth_checking], 1)[0] >= 0
+        else:
+            growing = True
+        if growing:
+            self.props_proc['growing'] = np.ones([len(self.get_props('frame'))])
+        else:
+            self.props_proc['growing'] = np.zeros([len(self.get_props('frame'))])
+
         return
-        # # computes average speed [m/s] if not done so already
-        # if self.proc_props['average flow speed [m/s]'] == None:
-        #     self.process_props()
-
-        # # determines which frames are worth looking at (large enough object, not on border)
-        # worth_checking = np.logical_and(
-        #                         np.asarray(self.props_raw['area']) > min_size,
-        #                         np.logical_not(np.asarray(self.props_raw['on border']))
-        #                         )
-
-        # # first checks if object is an artifact (marked by inner_stream = -1)
-        # # not convex enough?
-        # if any( np.logical_and(
-        #             np.asarray(self.props_raw('solidity')) < min_solidity,
-        #             worth_checking )
-        #         ):
-        #     self.props_proc['solid'] = False 
-        # else:
-        #     self.props_proc['solid']= True 
-
-        # # too oblong?
-        # if any( np.logical_and(
-        #             np.asarray(self.props_proc['aspect ratio']) > max_aspect_ratio,
-        #             np.asarray([row_max - row_min for row_min, _, row_max, _ in self.props_raw['bbox']]) \
-        #             < self.metadata['R_i']*conv.m_2_um*self.metadata['pix_per_um'] )
-        #     ):
-        #     self.props_proc['circular'] = False 
-        # else:
-        #     self.props_proc['circular'] = True 
-
-        # # oriented off axis (orientation of skimage.regionprops is CCW from up direction)
-        # if any( np.logical_and(
-        #             np.logical_and(
-        #                 np.abs(np.asarray(self.props_proc['orientation']) + np.pi/2) > max_orientation,
-        #                 np.abs(np.asarray(self.props_proc['orientation']) - np.pi/2) > max_orientation),
-        #             worth_checking )
-        #         ):
-        #     self.props_proc['oriented'] = False
-        # else:
-        #     self.props_proc['oriented'] = True 
-
-        # # checks that the bubble appears in a minimum number of consecutive frames
-        # if not self.appears_in_consec_frames(n_consec=n_consec):
-        #     self.props_proc['consecutive'] = False 
-        # else:
-        #     self.props_proc['consecutive'] = True
-
-        # # flowing backwards
-        # if any(np.asarray(self.props_proc['flow speed [m/s]']) < 0):
-        #     self.props_proc['inner stream'] = None
-        # elif any( np.asarray(self.props_proc['flow speed [m/s]']) > self.metadata['v_interf']):
-        #     self.props_proc['inner stream'] = True
-        # else:
-        #     self.props_proc['inner stream'] = False
-
-        # # exits properly from downstream side of frame
-        # # farthest right column TODO -- determine coordinate of bbox from flow dir
-        # col_max = self.props_raw['bbox'][-1][-1] 
-        # # average flow speed [m/s]
-        # average_flow_speed_m_s = self.props_proc['average flow speed [m/s]']
-        # # number of pixels traveled per frame along flow direction
-        # if average_flow_speed_m_s is not None:
-        #     pix_per_frame_along_flow = average_flow_speed_m_s * conv.m_2_um * \
-        #                     self.metadata['pix_per_um'] / self.metadata['fps']
-        #     # checks if the next frame of the object would reach the border or if the 
-        #     # last view of object is already on the border
-        #     if (col_max + pix_perf_frame_along_flow < self.metadata['frame_dim'][1]) and \
-        #             not self.props_raw['on border'][-1]:
-        #         self.props_proc['exited'] = False 
-        #     else:
-        #         self.props_proc['exited'] = True
-        # else:
-        #     self.props_proc['exited'] = False
-
-        # # growing over time TODO -- is `worth_checking` to strict?
-        # frames = np.asarray(self.props_raw['frame'])
-        # areas = np.asarray(self.props_raw['area'])
-        # if len(frames[worth_checking]) > 1:
-        #     growing = np.polyfit(frames[worth_checking], areas[worth_checking], 1)[0] >= 0
-        # else:
-        #     growing = True
-        # if not growing:
-        #     self.props_proc['growing'] = False
-        # else:
-        #     self.props_proc['growing'] = True
-
-        # return
 
 
     def predict_centroid(self, f):
