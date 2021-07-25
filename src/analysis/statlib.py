@@ -115,15 +115,15 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
     Returns
     -------
     mean_list : list of floats
-        mean of the pixels in each frame analyzed (length = end - start)
+        mean of the pixels in each frame (bkgd-sub) analyzed (length = end - start)
     mean_sq_list : list of floats
-        mean of the square of each pixel in each frame analyzed
+        mean of the square of each pixel in each frame (bkgd_sub) analyzed
         (length = end - start)
     stdev_list : list of floats
-        standard deviation of the pixel values of each frame analyzed
+        standard deviation of the pixel values of each frame (bkgd_sub) analyzed
         (length = end - start)
     min_val_list : list of floats
-        minimum pixel value of each frame analyzed (length = end - start)
+        minimum pixel value of each frame (bkgd-sub) analyzed (length = end - start)
     """
     # initializes lists to store data
     mean_list = []
@@ -174,7 +174,8 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
     return mean_list, mean_sq_list, stdev_list, min_val_list
 
 
-def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every):
+def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every,
+                        n_stdev=3):
     """
     Suggests high and low thresholds for hysteresis threshold and 
     threshold for uniform threshold based on k-means and other stats.
@@ -191,10 +192,14 @@ def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every):
         and high threshold for hysteresis thresholding
     """
     # computes statistics of the image
-    _, _, _, min_val_list = proc_stats(vid_path, mask_data, bkgd, end, 
+    mean_list, mean_sq_list, \
+    stdev_list, min_val_list = proc_stats(vid_path, mask_data, bkgd, end, 
                                             start=start, every=every)
     # converts to array for numpy operations
     min_val_arr = np.asarray(min_val_list)
+    # zeros positive values and switches sign to focus on bubbles
+    min_val_arr[min_val_arr > 0] = 0
+    min_val_arr *= -1
     # divides minima into 2 clusters with k-means algorithm
     inds_clusters = KMeans(n_clusters=2, 
                         random_state=1).fit_predict(min_val_arr.reshape(-1, 1))
@@ -209,8 +214,25 @@ def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every):
     # sets high hysteresis threshold to lower bound of higher k-means cluster
     # *same as Otsu's method
     th_hi = int(np.abs(min_high_cluster))
-    # sets low hysteresis threshold to mean of minimum + 1 standard deviation
-    th_lo = int(np.abs(np.mean(min_val_arr)) + np.std(min_val_arr))
+
+    # finds frames of pure background and computes their mean and standard deviation
+    i_bkgd = np.where(min_val_arr < th - n_stdev*np.std(min_val_arr))
+    mean_bkgd = np.mean(np.asarray(mean_list)[i_bkgd])
+    stdev_bkgd = np.mean(np.asarray(stdev_list)[i_bkgd])
+    # computes low threshold as some standard deviations above noise
+    th_lo = int(mean_bkgd + n_stdev*stdev_bkgd)
+
+    # # sets low hysteresis threshold to mean of minimum + 1 standard deviation
+    # th_lo = int(np.abs(np.mean(min_val_arr)) + np.std(min_val_arr))
+
+    # checks that thresholds are in proper order--warns and sorts if not
+    if th_lo > th or th > th_hi:
+        print('suggest_thresholds() yielded unordered thresholds:')
+        print('th_lo = {0:d}, th = {1:d}, th_hi = {2:d}'.format(th_lo, th, th_hi))
+        print('Reordering and returning, but values are *not recommended*.')
+        thresholds = [th_lo, th, th_hi]
+        thresholds.sort()
+        th_lo, th, th_hi = thresholds
 
     return th, th_lo, th_hi
 
