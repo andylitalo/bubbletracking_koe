@@ -175,7 +175,7 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1):
 
 
 def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every,
-                        n_stdev=3):
+                        th_reduction=0.9, n_stdev=5):
     """
     Suggests high and low thresholds for hysteresis threshold and 
     threshold for uniform threshold based on k-means and other stats.
@@ -216,7 +216,8 @@ def suggest_thresholds(vid_path, mask_data, bkgd, start, end, every,
     th_hi = int(np.abs(min_high_cluster))
 
     # finds frames of pure background and computes their mean and standard deviation
-    i_bkgd = np.where(min_val_arr < th - n_stdev*np.std(min_val_arr))
+    i_bkgd = np.where(min_val_arr < th_reduction*th)
+
     mean_bkgd = np.mean(np.asarray(mean_list)[i_bkgd])
     stdev_bkgd = np.mean(np.asarray(stdev_list)[i_bkgd])
     # computes low threshold as some standard deviations above noise
