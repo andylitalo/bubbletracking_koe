@@ -75,16 +75,25 @@ def bubble_label_color(bubble, f, std_color=cfg.white,
     color : 3-tuple of uint8s
         Color of label (RGB)
     """
-    # text of number ID is black if on the border of the image, white o/w
-    on_border = bubble.get_prop('on border', f)
-    outer_stream = bubble.get_props('inner stream') == 0
-    error = bubble.get_props('inner stream') == -1
-    if on_border or outer_stream:
-        color = border_color
-    elif not error:
-        color = std_color
+    # checks for errors
+    is_bubble = bubble.get_prop('inner stream', f) and \
+                    bubble.get_prop('solid', f) and \
+                    bubble.get_prop('circular', f) and \
+                    bubble.get_prop('oriented', f) and \
+                    bubble.get_prop('consecutive', f) and \
+                    bubble.get_prop('exited', f) and \
+                    bubble.get_prop('growing', f)
+
+    if not is_bubble:
+        color = error_color 
     else:
-        color = error_color
+        # text of number ID is black if on the border of the image, white o/w
+        on_border = bubble.get_prop('on border', f)
+        outer_stream = not bubble.get_prop('inner stream', f)
+        if on_border or outer_stream:
+            color = border_color
+        else:
+            color = std_color
 
     return color
 
