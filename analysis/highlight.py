@@ -184,8 +184,9 @@ def highlight_image(image, f, highlight_method, metadata, objs, IDs,
     row_hi = metadata['row_hi']
     frame = image[row_lo:row_hi, :]
     # extracts value channel
-    val = basic.get_val_channel(frame)
-
+    # val = basic.get_val_channel(frame)
+    val = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
     # highlights object according to parameters from data file
     bkgd = metadata['bkgd']
     highlighted = highlight_method(val, bkgd, **metadata['highlight_kwargs'])
