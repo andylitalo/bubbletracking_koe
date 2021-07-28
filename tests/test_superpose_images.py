@@ -13,6 +13,8 @@ Date: July 22, 2021
 import os 
 import pickle as pkl
 import cv2
+from matplotlib import cm
+import numpy as np
 
 # 3rd party libraries
 import argparse
@@ -42,6 +44,8 @@ def parse_args():
                     help='If 1, skips superposing images that overlap with the previous.')
     ap.add_argument('-e', '--ext', default='jpg',
                     help='Extension for saved images (no periods).')
+    ap.add_argument('-f', '--false_color', default=0, type=int,
+                    help='If 1, false-colors image. color_objs should be 0.')
     # ap.add_argument('-i', '--input_file', default='input.txt',
     #                 help='Name of file with input parameters.')
     ap.add_argument('-s', '--save', default=1, type=int,
@@ -55,12 +59,13 @@ def parse_args():
 
     skip_overlaps = bool(args['skip_overlaps'])
     ext = args['ext']
+    false_color = bool(args['false_color'])
     save = bool(args['save'])
     color_objs = bool(args['color_objs'])
     every = int(args['every'])
     disp_R = bool(args['disp_R'])
 
-    return skip_overlaps, ext, save, color_objs, every, disp_R
+    return skip_overlaps, ext, false_color, save, color_objs, every, disp_R
 
 
 ###################### HELPER FUNCTIONS #############################
@@ -105,7 +110,8 @@ def load_objs(input_filepath):
 
 def superpose_images(obj, metadata, skip_overlaps=False, 
                     num_frames_for_bkgd=100, every=1,
-                    color_objs=False, disp_R=False):
+                    color_objs=False, disp_R=False, b=1.7,
+                    false_color=False, cmap='jet'):
     """
     Superposes images of an object onto one frame.
 
@@ -129,6 +135,10 @@ def superpose_images(obj, metadata, skip_overlaps=False,
     disp_R : bool, optional
         If True, will display the radius measured by image-processing in um
         above each object.
+    b : float, optional
+        Factor by which to scale brightness of superposed images to match background.
+        Not sure why they don't automatically appear with the same brightness.
+        Default is 1.7.
 
     Returns
     -------
@@ -142,11 +152,14 @@ def superpose_images(obj, metadata, skip_overlaps=False,
     mask_data = highlight_kwargs['mask_data']
     row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
     # computes background
-    im = improc.compute_bkgd_med_thread(metadata['vid_path'],
+    bkgd = improc.compute_bkgd_med_thread(metadata['vid_path'],
             vid_is_grayscale=True,  #assumes video is already grayscale
             num_frames=num_frames_for_bkgd,
             crop_y=row_lo,
             crop_height=row_hi-row_lo)
+
+    # copies background to superpose object images on
+    im = np.copy(bkgd)
 
     # converts image to 3-channel if highlighting objects (needs color)
     if color_objs:
@@ -191,7 +204,7 @@ def superpose_images(obj, metadata, skip_overlaps=False,
             im_obj = highlight.highlight_image(basic.read_frame(cap, f), 
                                                 f, cfg.highlight_method,
                                                 metadata, {R : obj}, [R],
-                                                brightness=1.7, offset=offset)
+                                                brightness=b, offset=offset)
 
             # shows number ID of object in image
             centroid = obj.get_prop('centroid', f)
@@ -212,7 +225,8 @@ def superpose_images(obj, metadata, skip_overlaps=False,
                                         thickness=2)
         else:
             # loads image
-            im_obj = cv2.cvtColor(basic.read_frame(cap, f), cv2.COLOR_BGR2GRAY)[row_lo:row_hi, :]
+            im_raw = basic.read_frame(cap, f)
+            im_obj = cv2.cvtColor(basic.adjust_brightness(im_raw, b), cv2.COLOR_BGR2GRAY)[row_lo:row_hi, :]
 
             # superposes object image on overall image
             row_min, col_min, row_max, col_max = bbox
@@ -221,17 +235,34 @@ def superpose_images(obj, metadata, skip_overlaps=False,
 
         # increments counter 
         ct += 1
-    
+
+    # false-colors objects by taking signed difference with background
+    if false_color:
+        signed_diff = im.astype(int) - bkgd.astype(int)
+        # remove noise above 0 (*assumes object is darker than background)
+        if remove_positive_noise:
+            signed_diff[signed_diff > 0] = 0
+        # defines false-color mapping to range to max difference
+        max_diff = np.max(np.abs(signed_diff))
+        # normalizes image so -max_diff -> 0 and +max_diff -> 1
+        im_norm = (signed_diff + max_diff) / (2*max_diff)
+        # maps normalized image to color image (still as floats from 0 to 1)
+        color_mapped = cm.get_cmap(cmap)(im_norm)
+        # converts to OpenCV format (uint8 0 to 255)
+        im_false_color = basic.cvify(color_mapped)
+        # converts from RGBA to RGB
+        im = cv2.cvtColor(im_false_color, cv2.COLOR_RGBA2RGB)
+
     return im
 
 
 
 def main():
     # parses input arguments
-    skip_overlaps, ext, save, color_objs, every, disp_R = parse_args()
+    skip_overlaps, ext, false_color, save, color_objs, every, disp_R = parse_args()
 
     # inputs TODO make these parsed by argparse when running command
-    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_40000_001-1_050_0229_69_04_23/man1/data/input.txt']
+    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_60000_000-7_050_0230_67_10_32/size1/data/input.txt']
 
 #['ppg_co2/20210720_70bar/ppg_co2_60000_000-7_050_0230_67_10_32/size1/data/input.txt']
 
@@ -248,11 +279,22 @@ def main():
         # creates a new image of superposed frames for each object
         for ID, obj in objs.items():
             im = superpose_images(obj, metadata, skip_overlaps=skip_overlaps, every=every, 
-                                    color_objs=color_objs, disp_R=disp_R)
+                                    color_objs=color_objs, disp_R=disp_R, false_color=false_color)
             if save:
                 # saves image
-                basic.save_image(im, os.path.join(get_figs_dir(input_filepath), 
-                                            'obj{0:d}.{1:s}'.format(ID, ext)))    
+                suffix = ''
+                if false_color:
+                    suffix += '_false'
+                if color_objs:
+                    suffix += 'color'
+                if disp_R:
+                    suffix += '_R'
+                if every != 1:
+                    suffix += '_{0:d}'.format(every)
+                save_path = os.path.join(get_figs_dir(input_filepath), 
+                                            'obj{0:d}{1:s}.{2:s}'.format(ID, suffix, ext))
+                
+                basic.save_image(im, save_path)    
 
     return
 
