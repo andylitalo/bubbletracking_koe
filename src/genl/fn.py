@@ -104,7 +104,9 @@ def parse_vid_path(vid_path):
     for i, token in enumerate(tokens):
         if token.isnumeric():
             break
-        prefix.join(token)
+        elif i != 0:
+            prefix += '_'
+        prefix += token
 
     params = {'prefix' : prefix,
               'fps' : int(tokens[i]),
