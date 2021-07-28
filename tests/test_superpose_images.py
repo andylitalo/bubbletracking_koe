@@ -110,8 +110,8 @@ def load_objs(input_filepath):
 
 def superpose_images(obj, metadata, skip_overlaps=False, 
                     num_frames_for_bkgd=100, every=1,
-                    color_objs=False, disp_R=False, b=1.7,
-                    false_color=False, cmap='jet'):
+                    color_objs=False, disp_R=False, b=1.7, d=2,
+                    false_color=False, cmap='jet', remove_positive_noise=True):
     """
     Superposes images of an object onto one frame.
 
@@ -139,6 +139,9 @@ def superpose_images(obj, metadata, skip_overlaps=False,
         Factor by which to scale brightness of superposed images to match background.
         Not sure why they don't automatically appear with the same brightness.
         Default is 1.7.
+    d : int, optional
+        Number of pixels to around the bounding box of the object to transfer to
+        the superposed image. Helps ensure the outer edge of the image is bkgd. Default is 2.
 
     Returns
     -------
@@ -201,7 +204,11 @@ def superpose_images(obj, metadata, skip_overlaps=False,
             # selects offset that pushes label out of image 
             offset = bbox[3]-bbox[1]+5
 
-            im_obj = highlight.highlight_image(basic.read_frame(cap, f), 
+            # reads frame and converts to color
+            frame = basic.read_frame(cap, f)
+
+            # highlights the object in the image
+            im_obj = highlight.highlight_image(frame, 
                                                 f, cfg.highlight_method,
                                                 metadata, {R : obj}, [R],
                                                 brightness=b, offset=offset)
@@ -215,8 +222,9 @@ def superpose_images(obj, metadata, skip_overlaps=False,
 
             # superposes object image on overall image (3-channel images)
             row_min, col_min, row_max, col_max = bbox
-            im[row_min:row_max, col_min:col_max, :] = im_obj[row_min:row_max, 
-                                                            col_min:col_max, :]
+            d = 2
+            im[row_min-d:row_max+d, col_min-d:col_max+d, :] = im_obj[row_min-d:row_max+d, 
+                                                            col_min-d:col_max+d, :]
 
             if disp_R:
                 # prints label on image (radius [um])
@@ -243,7 +251,7 @@ def superpose_images(obj, metadata, skip_overlaps=False,
         if remove_positive_noise:
             signed_diff[signed_diff > 0] = 0
         # defines false-color mapping to range to max difference
-        max_diff = np.max(np.abs(signed_diff))
+        max_diff = max(np.max(np.abs(signed_diff)), 1) # ensures >= 1
         # normalizes image so -max_diff -> 0 and +max_diff -> 1
         im_norm = (signed_diff + max_diff) / (2*max_diff)
         # maps normalized image to color image (still as floats from 0 to 1)
@@ -262,7 +270,7 @@ def main():
     skip_overlaps, ext, false_color, save, color_objs, every, disp_R = parse_args()
 
     # inputs TODO make these parsed by argparse when running command
-    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_60000_000-7_050_0230_67_10_32/size1/data/input.txt']
+    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_60000_000-7_050_0230_67_10_32/size3/data/input.txt']
 
 #['ppg_co2/20210720_70bar/ppg_co2_60000_000-7_050_0230_67_10_32/size1/data/input.txt']
 
@@ -286,7 +294,7 @@ def main():
                 if false_color:
                     suffix += '_false'
                 if color_objs:
-                    suffix += 'color'
+                    suffix += '_color'
                 if disp_R:
                     suffix += '_R'
                 if every != 1:
