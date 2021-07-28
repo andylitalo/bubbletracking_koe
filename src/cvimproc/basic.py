@@ -9,6 +9,7 @@ Date: January 28, 2021
 """
 
 import cv2
+import scipy.ndimage
 import numpy as np
 import PIL.Image
 
@@ -178,6 +179,32 @@ def cvify(im):
 
 
 def fill_holes(im_bw):
+    """
+    Fills holes using `skimage` package since it's more reliable than
+    the OpenCV package. The OpenCV package requires you to identify a
+    "seed point" that belongs to the background, but if an object passes
+    over it, the filling fails.
+
+    Parameters
+    ----------
+    im_bw : numpy array of uint8
+        Image whose holes are to be filled. 0s and 255s
+
+    Returns
+    -------
+    im : numpy array of uint8
+        Image with holes filled, including those cut off at border. 0s and 255s
+    """
+    # formats image for OpenCV (and copies it)
+    im_bw = im_bw.astype(bool)
+    im = scipy.ndimage.morphology.binary_fill_holes(im_bw)
+    # converts to 0 - 255 scale image (uint8)
+    im = cvify(im)
+
+    return im 
+
+
+def fill_holes_cv(im_bw):
     """
     Fills holes in image solely using OpenCV to replace
     `fill_holes` for porting to C++.
