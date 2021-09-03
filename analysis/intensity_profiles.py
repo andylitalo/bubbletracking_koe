@@ -26,6 +26,7 @@ sys.path.append('../src/')
 import genl.readin as readin
 import genl.main_helper as mh
 import cvimproc.basic as basic 
+import cvimproc.improc as improc
 
 import config as cfg
 
@@ -142,12 +143,12 @@ def main():
         # loops through frames 
         for n in frame_nums:
 
-            # creates plot (two subplots side-by-side)
-            fig = plt.figure()
+            # creates plot
+            fig = plt.figure(figsize=(8, 5))
 
 
             ### DISPLAYS IMAGE OF OBJECT
-            ax_im = fig.add_subplot(2, 2, 1)
+            ax_im = fig.add_subplot(3, 2, 1)
 
             # extracts frame from video
             frame = basic.read_frame(cap, n)
@@ -191,23 +192,28 @@ def main():
             # https://scikit-image.org/docs/dev/auto_examples/filters/plot_unsharp_mask.html
 
             # plots 3D surface plot on right side of plot
-            ax_prof = fig.add_subplot(2, 2, 2, projection='3d')
+            ax_prof = fig.add_subplot(3, 2, 2, projection='3d')
             ax_prof.plot_surface(X, Y, I, cmap=cm.coolwarm, linewidth=0, antialiased=False)
             ax_prof.set_title('Max grad = {0:d}'.format(int(grad_max)))
 
 
             ### DISPLAYS EFFECT OF SHARPNESS ON SHARPNESS METRIC
-            radius_list = [1, 3, 5, 10]
-            amount_list = [0.1, 0.5, 1, 2]
-            ax_sharp = fig.add_subplot(2, 2, 3)
+            # parameters of unsharp masking method
+            radius_list = [0, 1, 3, 5, 10]
+            amount_list = [0, 0.1, 0.5, 1, 2, 4]
+            ax_sharp = fig.add_subplot(3, 2, 6)
             
+            # applies unsharp masking w different params; computes max gradient
             for radius in radius_list:
                 grad_max_list = []
                 for amount in amount_list:
+                    # sharpens image -- asks to preserve range to compare with 
+                    # previous computation of grad_max
                     I_sharpened = skimage.filters.unsharp_mask(
                                                             I, 
                                                             radius=radius, 
-                                                            amount=amount
+                                                            amount=amount,
+                                                            preserve_range=True,
                                                             )
                     # evaluate maximum gradient
                     grads = compute_gradients(
@@ -221,6 +227,28 @@ def main():
                 ax_sharp.plot(amount_list, grad_max_list, 
                             label='radius = {0:d}'.format(int(radius)))
 
+            ax_sharp.set_xlabel('amount')
+            ax_sharp.set_ylabel('sharpness metric')
+            ax_sharp.legend(fontsize=8)
+
+
+            ### PLOTS SHARPENED IMAGE
+            ax_im_sharp = fig.add_subplot(3, 2, 3)
+            I_sharp = skimage.filters.unsharp_mask(
+                                                I,
+                                                radius=5,
+                                                amount=4,
+                                                preserve_range=True,
+                                            )
+            ax_im_sharp.imshow(I_sharp)
+
+
+            ### PLOTS SHARPENED INTENSITY PROFILE
+            ax_prof_sharp = fig.add_subplot(3, 2, 4, projection='3d')
+            ax_prof_sharp.plot_surface(X, Y, I_sharp, cmap=cm.coolwarm, 
+                                        linewidth=0, antialiased=False)
+            ax_prof_sharp.set_title('Max grad = {0:d}'.format(int(max_abs(compute_gradients(I_sharp, (rc, cc))))))
+
 
             ### INTEGRATES INTENSITY TO DIFFERENT RADII FROM CENTROID
             I_integ_list = []
@@ -231,6 +259,23 @@ def main():
             # ax_integ = fig.add_subplot(2, 2, 4)
             # ax_integ.plot(R_list, I_integ_list, 'b--')
 
+            
+            ### COMPUTES EDGE BY FULL-WIDTH @ HALF MAXIMUM (FWHM)
+            # identifies maximum pixel value
+            I_max = np.max(I)
+            # applies threshold
+            I_uint8 = np.abs(I).astype('uint8')
+            I_thresh = improc.thresh_im(I_uint8, int(I_max/2))
+            # smooths out thresholded image and removes localized noise
+            I_smooth = cv2.morphologyEx(I_thresh, cv2.MORPH_OPEN, selem)
+            min_size = 2
+            I_clean = improc.remove_small_objects(I_smooth, min_size)
+            # plots image with edge drawn
+            th1 = 5
+            th2 = 10
+            edges = cv2.Canny(I_clean, th1, th2)
+            ax_edge = fig.add_subplot(3, 2, 5)
+            ax_edge.imshow(edges, cmap='gray')
 
             # saves plot
             plt.savefig(os.path.join(figs_dir, '{0:s}_obj{1:d}_f{2:d}.{3:s}'.format(prefix, ID, n, ext)))
