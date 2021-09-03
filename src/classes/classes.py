@@ -469,24 +469,44 @@ class Bubble(TrackedObject):
         self.props_proc['inner stream'] = np.asarray(self.get_props('flow speed [m/s]')) > \
                                                                  self.get_metadata('v_interf')
 
-        # exits properly from downstream side of frame
+        ### Checks if object entered/exited frame or appeared/disappeared
+
         # farthest right column TODO -- determine coordinate of bbox from flow dir
         col_max = self.get_props('bbox')[-1][-1] 
+        # farthest left column TODO -- determine coordinate of bbox from flow dir
+        col_min = self.get_props('bbox')[0][1] 
+
         # average flow speed [m/s]
         average_flow_speed_m_s = self.get_props('average flow speed [m/s]') 
         # number of pixels traveled per frame along flow direction
         if average_flow_speed_m_s is not None:
             pix_per_frame_along_flow = average_flow_speed_m_s * conv.m_2_um * \
                             self.get_metadata('pix_per_um') / self.get_metadata('fps')
-            # checks if the next frame of the object would reach the border or if the 
+
+            # determines if object exited (as opposed to disappeared) from the frame by
+            # checking if the next frame of the object would reach the border or if the 
             # last view of object is already on the border
             if (col_max + pix_per_frame_along_flow < self.get_metadata('frame_dim')[1]) and \
                     not self.get_props('on border')[-1]:
                 self.props_proc['exited'] = np.zeros([len(self.get_props('frame'))])
             else:
                 self.props_proc['exited'] = np.ones([len(self.get_props('frame'))])
+
+            # determines if object entered (as opposed to appeared) into the frame by
+            # checking if the previous frame of the object would have been on the border 
+            # or if the first view of object was on the border
+            if (col_min - pix_per_frame_along_flow > self.get_metadata('frame_dim')[0]) and \
+                    not self.get_props('on border')[0]:
+                self.props_proc['entered'] = np.zeros([len(self.get_props('frame'))])
+            else:
+                self.props_proc['entered'] = np.ones([len(self.get_props('frame'))])
+                
+        # if no average flow speed available, assumes bubble neither entered nor exited the frame
         else:
             self.props_proc['exited'] = np.zeros([len(self.get_props('frame'))])
+            self.props_proc['entered'] = np.zeros([len(self.get_props('frame'))])
+
+        
 
         # growing over time
         frames = np.asarray(self.get_props('frame'))
