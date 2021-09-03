@@ -1,8 +1,5 @@
-
-src/libs/
 input/test/video_sources/
 input/sd301_co2/
-output/
 demos/
 *.mp4
 *.pyc
@@ -12,3 +9,4 @@ demos/
 *.png
 *.pptx
 *.cihx
+*.tif
