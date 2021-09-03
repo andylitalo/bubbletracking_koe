@@ -338,7 +338,8 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
     """
     # collects metadata -- separately adds highlight_kwargs for quick highlight call
     metadata = {'highlight_kwargs' : highlight_kwargs, 
-                'vid_path' : vid_path}
+                'vid_path' : vid_path,
+                'n_frames' : basic.count_frames(vid_path)}
     # adds remaining metadata from parameter dictionary and other keyword arguments
     param_dicts = (p, track_kwargs, assign_kwargs)
     for d in param_dicts:
