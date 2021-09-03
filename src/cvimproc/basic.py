@@ -361,6 +361,10 @@ def read_frame(cap, num):
     """Reads frame given the video capture object."""
     cap.set(cv2.CAP_PROP_POS_FRAMES, num)
     grabbed, frame = cap.read()
+    # checks if frame was grabbed properly
+    if not grabbed:
+        print('Reading frame {0:d} failed.'.format(num))
+        return None
 
     return frame
 
