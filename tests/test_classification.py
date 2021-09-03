@@ -235,7 +235,7 @@ def main():
     # input_subpaths = ['sd301_co2/20210331_45bar/sd301_co2_40000_001_050_0150_95_04_9/testclassify/data/input.txt',
     #                 'sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testclassify/data/input.txt']
 
-    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_40000_001-1_050_0228_69_04_13/autothresh1/data/input.txt']
+    input_subpaths = ['ppg_co2/20210720_70bar/ppg_co2_40000_001-1_050_0228_74_04_11/nofill/data/input.txt']
     ext = 'jpg'
     skip_overlaps = True
     save = True
