@@ -40,6 +40,16 @@ python main.py
 ```
 from the `src` folder.
 
+## Contents
+
+- `analysis` contains scripts for analyzing bubble tracking data generated from `main.py`
+- `demos` contains function libraries used in the [online demo of this software](www.andylitalo.com).
+- `input` stores input files for bubble tracking and analysis
+- `output` stores output files from the bubble tracking and analysis
+- `src` contains function libraries used for bubble tracking and analysis; also contains the script
+        that runs the bubble tracking algorithm (`main.py`)
+-`tests` contains scripts and function libraries for testing the functionality of different methods
+
 ## Known Bugs
 
 To specify the mask (and the flow direction, if used for object-tracking), the user will use the `ui.py`
@@ -77,3 +87,5 @@ your video in the `output` folder.
         --> ObservationCapillary
         --> Tubing
         --> InnerStreamCapillary
+ - fix inconsistency in defn of 'end' (# frames or last frame's index?)
+ - **FIGURE OUT IF IT'S IMPORTANT TO FILL HOLES AND, IF NOT, HOW TO FILL THEM**
