@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import cv2
 from sklearn import metrics
 from sklearn.cluster import KMeans
+import scipy.stats
 
 # imports custom libraries
 import cvimproc.mask as mask
@@ -41,6 +42,30 @@ def inds_to_labels(inds, n_samples):
     labels[inds] = 1    
 
     return labels.astype(bool) 
+
+
+def is_symmetric(data, tol=0.01):
+    """
+    Determines if the distribution of data is symmetric about its mean
+    (which may be specified separately). Places threshold on skewness.
+
+    Parameters
+    ----------
+    data : array-like
+        Numpy array of single-valued data points, shape doesn't matter
+    tol : float, opt
+        Tolerance on skewness to consider distribution symmetric.
+        Default is 0.01.
+
+    Returns
+    -------
+    True if skewness is within tolerance. Otherwise, False.
+    """
+    # computes skewness
+    skewness = scipy.stats.skew(data.flatten())
+
+    return np.abs(skewness) < tol 
+
 
 def plot_roc(fpr, tpr, save_path='', ext='.jpg', show_fig=False,
             t_fs=18, ax_fs=16, tk_fs=14, l_fs=12):
@@ -96,7 +121,7 @@ def plot_roc(fpr, tpr, save_path='', ext='.jpg', show_fig=False,
     
 
 def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1,
-                apply_mask=True, every_multiplier=100):
+                apply_mask=True):
     """
     Processes statistics of the images in the video.
 
@@ -115,10 +140,6 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1,
     apply_mask : bool, optional
         If True, will apply mask before computing statistics of a frame.
         Default True.
-    every_multiplier : int, optional
-        If `apply_mask` is `True`, will multiply `every` by this factor
-        to speed up processing time (since applying the mask slows down
-        computation). Default 100.
 
     Returns
     -------
@@ -150,8 +171,7 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1,
     if apply_mask:
         # masks background
         bkgd = mask.mask_image(bkgd, mask_data['mask'][row_lo:row_hi])
-        in_mask = np.ones(mask_data['mask'].astype(bool)[row_lo:row_hi, :].shape, dtype=int)
-        every *= every_multiplier
+        in_mask = mask_data['mask'].astype(bool)[row_lo:row_hi, :]
 
     while(cap.isOpened()):
         # skips every "every" number of frames
@@ -159,6 +179,7 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1,
             f += 1
             continue
 
+        print('analyzing frame {0:d}'.format(f))
         # reads current frame
         ret, frame = cap.read()
 
@@ -183,10 +204,11 @@ def proc_stats(vid_path, mask_data, bkgd, end, start=0, every=1,
             min_val_list += [np.min(signed_diff)]
         else:
             # in_mask = np.ones(mask_data['mask'].astype(bool)[row_lo:row_hi, :].shape, dtype=int)
-            mean_list += [np.mean(signed_diff[in_mask])]
-            mean_sq_list += [np.mean(signed_diff[in_mask]**2)]
-            stdev_list += [np.std(signed_diff[in_mask])]
-            min_val_list += [np.min(signed_diff[in_mask])]
+            signed_diff_masked = signed_diff[in_mask]
+            mean_list += [np.mean(signed_diff_masked)]
+            mean_sq_list += [np.mean(signed_diff_masked**2)]
+            stdev_list += [np.std(signed_diff_masked)]
+            min_val_list += [np.min(signed_diff_masked)]
 
         # increments frame number
         f += 1
