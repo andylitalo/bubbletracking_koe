@@ -88,10 +88,12 @@ def parse_args():
     return frame_start, frame_end, stop_early, save_diff, colormap, save
 
 
-### COMPUTATIONS ###
+### MAIN ###
 
 def main():
-    
+
+    ### SETUP
+    # reads args
     frame_start, frame_end, stop_early,\
     save_diff, colormap, save = parse_args()
 
@@ -103,35 +105,42 @@ def main():
     first_frame, _ = basic.load_frame(vid_path, 0)
     mask_data = ui.get_polygonal_mask_data(first_frame, mask_path)
 
-    # Compute background
+    # Computes background
     row_lo, _, row_hi, _ = mask.get_bbox(mask_data)
     bkgd = improc.compute_bkgd_med_thread(vid_path,
         vid_is_grayscale=True,  #assume video is already grayscale (all RGB channels are the same)
         num_frames=num_frames_for_bkgd)
 
     # Prints frames and histograms of desired frames
-    desired_frames = np.arange(frame_start, frame_end)
-    for f in desired_frames:
-        cap = cv2.VideoCapture(vid_path)
+    cap = cv2.VideoCapture(vid_path)
+    for f in range(frame_start, frame_end):
         cap.set(cv2.CAP_PROP_POS_FRAMES, f)
         ret, frame = cap.read()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         diff = cv2.absdiff(frame, bkgd)
+
+        # uses bkgd-subtracted image
         if save_diff:
             im = PIL.Image.fromarray(diff)
+        # o/w raw image
         else:
             im = PIL.Image.fromarray(frame)
+        # saves image if requested
         if save:
             im.save(os.path.join(save_path, '{0:d}.{1:s}'.format(f, ext)))
-        # plots histogram
+
+        # plots histogram of signed bkgd-sub image
         signed_diff = frame.astype(int) - bkgd.astype(int)
         plt.figure()
         _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
         plt.ylim(0, hist_max)
         plt.title('{0:d}'.format(f))
+        # saves if requested
         if save:
             plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
         plt.close()
+
+        # saves false-color signed bkgd-sub image if colormap provided
         if len(colormap) > 0:
             # scales brightness of pixels to saturation (or near it)
             scale = int(255 / np.max(np.abs(signed_diff)))
@@ -142,11 +151,14 @@ def main():
             plt.savefig(os.path.join(save_path, 'fc_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
             plt.close()
 
-    # computes statistics
+
+    ### STATISTICS
+
+    # aggregates stats of frames in video
     mean_list, mean_sq_list, stdev_list, min_val_list = stat.proc_stats(vid_path, 
                                                                 bkgd, end)
 
-    # computes stats
+    # computes stats of full video
     mu = np.mean(mean_list)
     sigma = np.sqrt(np.mean(mean_sq_list) - mu**2)
     sigma_approx = np.mean(stdev_list)
@@ -159,7 +171,8 @@ def main():
     print('Mean min = {0:.2f}; std min = {1:.2f}; mu - {2:.1f}*sigma = {3:.2f}'.format(mu_min,
                         sigma_min, n_sigma, mu_min - n_sigma*sigma_min))
 
-    # PLOTS HISTOGRAMS
+
+    ### PLOTS OVERALL HISTOGRAMS OF VIDEOS
     # MEAN
     plt.figure()
     _ = plt.hist(mean_list, n_bins, histtype='step')
@@ -207,7 +220,6 @@ def main():
     print('Mean and standard deviation computed. Now save individual images and histograms.')
 
 
-    #th_min = -n_sigma*sigma
     th_min = mu_min - n_sigma*sigma_min # removes mean since we want to compare to median (= 0)
     # uses Otsu's method to identify threshold b/w min val for object and for no object
     th_min_otsu = skimage.filters.threshold_otsu(min_val_arr)
@@ -245,25 +257,30 @@ def main():
     print('Threshold from KDE is {0:.1f}.'.format(th_min_kde))
 
 
+    ###########################################################################
+    ### EARLY STOPPING IF REQUESTED
+    ###########################################################################
     if stop_early:
         return 0
 
-    # load frames and process
+
+    ### SAVES HISTOGRAMS OF FRAMES SATISFYING REQS FOR OUTLIERS
+    # load frames and processes
     cap = cv2.VideoCapture(vid_path)
     f = 0
-
     while(cap.isOpened()):
         # loads frame
         ret, frame = cap.read()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         diff = cv2.absdiff(frame, bkgd)
         
+        # computes signed difference and its stats
         signed_diff = frame.astype(int) - bkgd.astype(int)
         mean = np.mean(signed_diff)
         stdev = np.std(signed_diff)
         min_val = np.min(signed_diff)
 
-        # saves image if a threshold is exceeded
+        # saves image if a threshold is exceeded ("outlier")
         sub_dirs = []
     #    if mean > th_mean:
     #        sub_dirs += ['above_mean']
@@ -311,13 +328,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-"""  
-    # highlight objects and extract images at each step
-    proc_ims = improc.highlight_object_hyst_thresh(
-                            frame, bkgd, th, th_lo, th_hi,
-                            min_size_hyst, min_size_th, width_border, 
-                            selem, mask_data, ret_all_steps=True)
-    
-    im_diff, thresh_bw_1, object_1, thresh_bw_2, object_2, object = proc_ims
-"""
