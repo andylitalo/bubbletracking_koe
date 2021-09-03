@@ -48,7 +48,7 @@ def parse_args():
                     help='If 1, uses previous background if data available.')
     ap.add_argument('-m', '--remember', default=0, type=int,
                     help='If 1, remembers objects by extrapolating centroid.')
-    ap.add_argument('-d' ,'--dist', default=0, type=int,
+    ap.add_argument('-d' ,'--dist', default=1, type=int,
                     help='If 1, data saved to be distributable (no classes).')
     args = vars(ap.parse_args())
 
