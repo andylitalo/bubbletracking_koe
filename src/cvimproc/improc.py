@@ -644,7 +644,7 @@ def highlight_obj_hyst_thresh(frame, bkgd, th, th_lo, th_hi, min_size_hyst,
     obj_bw_2 = remove_small_objects(closed_bw_2, min_size_hyst)
     # fills in holes, including those that might be cut off at border
     obj_2 = frame_and_fill(obj_bw_2, width_border)
-
+    # obj_2 = obj_bw_2 # TODO reinstate frame_and_fill
     # merges images to create final image and masks result
     obj = np.logical_or(obj_1, obj_2)
 
