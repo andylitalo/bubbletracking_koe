@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
 import ctypes
-import cv2
 
 from tkinter import messagebox
 
@@ -109,7 +108,7 @@ def click_for_length(im, just_height=False, msg='', return_origin=False):
     """
     """
     # formats image for use in matplotlib's imshow
-    im_p = improc.prep_for_mpl(im)
+    im_p = basic.prep_for_mpl(im)
     # collects 2 pts from clicks defining the flow direction along inner wall
     if msg == '':
         msg = 'right-click 2 pts spanning desired length, then left-click'
