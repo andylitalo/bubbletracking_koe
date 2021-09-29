@@ -21,7 +21,7 @@ import cvimproc.mask as mask
 import cvimproc.ui as ui
 import genl.flow as flow
 import cvimproc.basic as basic
-from classes.classes import Bubble, TrackedObject
+from classes.classes import Bubble
 
 # global conversions
 import genl.conversions as conv
