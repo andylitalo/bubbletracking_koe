@@ -3,7 +3,8 @@ label_data.py loads data from videos processed in main.py and sets up
 a protocol for the user to classify objects identified in the videos
 as true objects or noise.
 
-
+Author: Andy Ylitalo
+Date: September 29, 2021
 """
 
 # standard libraries
