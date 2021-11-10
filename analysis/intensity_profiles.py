@@ -161,7 +161,8 @@ def main():
             row_min, col_min, row_max, col_max = obj.get_prop('bbox', n)
 
             # plots bbox of frame on left side of plot
-            ax_im.imshow(basic.adjust_brightness(frame[row_min:row_max, col_min:col_max, :], brightness))
+            ax_im.imshow(basic.adjust_brightness(frame[row_min:row_max,
+                                                col_min:col_max, :], brightness))
             ax_im.axis('off')
 
 

@@ -6,4 +6,4 @@ datasets.
 
 ## Data Files
 
-- `f_0_1_11088.pkl`: copied on Sept 29, 2021 from `~/tracking/bubbletracking_koe/output/sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testv0121/data`
+- `20210207_10.pkl`: copied on Sept 29, 2021 from `~/tracking/bubbletracking_koe/output/sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/testv0121/data`

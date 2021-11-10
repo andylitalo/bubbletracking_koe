@@ -3,6 +3,11 @@ label_data.py loads data from videos processed in main.py and sets up
 a protocol for the user to classify objects identified in the videos
 as true objects or noise.
 
+TODO: expand classes to include spherical bubble, elongated bubble, 
+corrupted bubble (merged with noise), gunk (nucleates bubbles, rotates),
+stream disruption (noise along inner stream interface), and heterogeneously
+nucleated bubbles (teardrop shape, oriented off axis).
+
 Author: Andy Ylitalo
 Date: September 29, 2021
 """

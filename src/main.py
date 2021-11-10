@@ -84,9 +84,19 @@ def main():
                                         int((p['end']-p['start'])/p['every']),
 					                    time.time()-start_time))
 
+    # processes object properties like average speed
+    for ID in objs.keys():
+        obj = objs[ID]
+        obj.process_props()
+
     # TODO Filter
+
     # TODO -- second round with greater sensitivity at specific locations
     # where bubbles are probable
+
+    # searches before and after objects provided with more sensitive threshold
+    # improc.search_obj()
+
     # TODO second filter --should these be separate methods?
     
     ######################## 3) PROCESS DATA ###################################

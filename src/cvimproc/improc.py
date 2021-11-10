@@ -132,6 +132,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     # computes frame dimesions
     frame_dim = bw_frame.shape
     # measures region props of each object in image
+    # TODO how can I get the grayscale image within the bbox when it's processed in CvVidProc (C++)?
+    # this just saves the black-and-white image
     objects_curr = region_props(bw_frame, n_frame=f, 
                             width_border=width_border, ellipse=ellipse)
 
@@ -1070,6 +1072,69 @@ def remove_small_objects_connected(im, min_size):
             im_labeled[np.where(im_labeled==i)] = max_val
 
     return im_labeled.astype('uint8')
+
+
+def search_obj(objects, th, th_lo, th_hi, n_frames):
+    """
+    Searches the frames before and after each object provided with a sensitive
+    threshold for observations of the object missed by the more strict
+    threshold used in `track_obj`.
+
+    Updates objects dictionary in place (void method),
+
+    ***UNDER CONSTRUCTION***
+
+    Parameters
+    ----------
+
+    Returns nothing (objects updated in place).
+    """
+    ### Searches frames before and after each object ###
+    for ID, obj in objects.items():
+        # gets frames in which object was observed
+        f_list = obj.get_props('frame')
+        # gets speed and largest size of object
+        speed = obj.get_props('speed') / obj.get_metadata('fps') # [pix/frame]
+        # TODO average over window of 3
+        bbox = obj.get_props('bbox') # [pix]
+        # use smallest bbox size for ROI previous
+        # grow bbox 
+
+        # warns user if frame list is not consecutive (missing frames)
+        if not fn.is_consecutive(f_list):
+            print('Warning: object {0:d} does not have consecutive frames.'.format(ID))
+
+        # searches frames before first observation of object
+        f_first = f_list[0]
+        f_prev = f_first - 1
+        while f_prev >= 0:
+            # predicts ROI to search
+
+            # applies image processing to look for object in ROI
+
+            if earlier_observation:
+                # adds observation to tracked object
+                f_prev -= 1 # begins search of previous frame
+            else:
+                break
+
+        # TODO determine if necessary to search after object
+        # or if we can assume bubbles will be large enough
+        # # searches frames after first observation of object
+        # f_next = f_list[-1] + 1
+        # while f_next < n_frames:
+        #     # predicts ROI to search
+        #     # applies image processing to look for object in ROI
+
+        #     if later_observation:
+        #         # adds observation to tracked object
+        #         f_next +=  1 # begins search of next frame
+        #     else:
+        #         break
+
+    return
+
+
 
 
 def thresh_im(im, thresh=-1, c=5):
