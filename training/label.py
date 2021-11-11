@@ -16,6 +16,7 @@ import argparse
 
 # 3rd party libraries
 import cv2
+import numpy as np
 
 # adds source folder
 import sys
@@ -30,11 +31,30 @@ from classes.classes import Bubble
 
 ####################################################################################
 
+### Transforms ###
+def take_id(val):
+    return val
+
+def take_abs(val):
+    return np.abs(val)
+
+def take_one_diff(val):
+    return 1 - val
+
+
 ### Global Constants ###
 # fields to save
-PROP_NAMES = ['area', 'major axis', 'minor axis', 'aspect ratio', 
-                'orientation', 'solidity', 'inner stream', 'on border']
 
+# features to compute
+# each is a 2-tuple: (list of required properties, function to be applied to them)
+FEATURES = [()]
+PROPS_TRANSFORMS = [('area', take_id), ('major axis', take_id), 
+                    ('minor axis', take_id), ('aspect ratio', take_id),
+                    ('orientation', take_abs), ('solidity', take_one_diff),
+                    ('inner stream', take_id), ('on border', take_id),
+                    ('R_i')]
+
+PROP_NAMES = [pair[0] for pair in PROPS_TRANSFORMS]
 # header for output
 HDR = PROP_NAMES + ['class']
 
@@ -135,8 +155,12 @@ def main():
             for n in frame_nums:
                 # stores requested properties in list
                 props = []
-                for prop_name in PROP_NAMES:
-                    props += [float(obj.get_prop(prop_name, n))]
+                for prop_name, transform in PROPS_TRANSFORMS:
+                    try:
+                        val = obj.get_prop(prop_name, n)
+                    except:
+                        val = obj.get_metadata(prop_name)
+                    props += [transform(float(val))]
 
                 # extracts image of object
                 im = obj.get_prop('image', n)
