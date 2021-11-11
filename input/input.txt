@@ -1,4 +1,4 @@
-input_name = sensitive1 # name for this set of parameters, no apostrophes
+input_name = test3 # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
 eta_i = 0.025 # inner stream viscosity [Pa.s]
@@ -13,9 +13,9 @@ num_frames_for_bkgd = 1000 # number of frames to average to compute the backgrou
 start = 0 # frame to start processing at
 end = -1 # frame to end processing at (not included)
 every =  1 # processes every this number of frames (1 means every frame)
-th = 18 # threshold value for standard thresholding
-th_lo = 6 # low threshold value for hysteresis thresholding
-th_hi = 20 # high threshold value for hysteresis thresholding
+th = 66 # threshold value for standard thresholding
+th_lo = 64 # low threshold value for hysteresis thresholding
+th_hi = 68 # high threshold value for hysteresis thresholding
 min_size_hyst = 2 # minimum size of object kept after hysteresis thresholding
 min_size_th = 2 # minimum size of object kept after standard thresholding
 min_size_reg = 2 # minimum size of object to be registered as a bubble
@@ -23,7 +23,7 @@ camera = photron # photron if using Photron NOVA S6, chronos if using Chronos 1.
 
 ############################# FILE PARAMETERS ##################################
 ### DON'T WRITE STRINGS WITH APOSTROPHES '' THEY WILL AUTOMATICALLY BE ADDED ###
-vid_subdir = ppg_co2/20210720_70bar # <polyol>_<gas>/yyyymmdd_<pressure>bar
+vid_subdir = ppg_co2/20211022_80bar # <polyol>_<gas>/yyyymmdd_<pressure>bar
 
 # video name should follow format required by fn.parse_vid_path:
 # hdr_00000_111-1_222_3333_44_55_6.mp4
@@ -36,4 +36,4 @@ vid_subdir = ppg_co2/20210720_70bar # <polyol>_<gas>/yyyymmdd_<pressure>bar
 # 5: magnification of objective lens (x)
 # 6: number of video (0-indexed, no leading zeros)
 
-vid_name = ppg_co2_60000_000-7_050_0230_67_10_32.mp4 # include ext
+vid_name = ppg_co2_50000_000-7_050_0302_90_20_78.mp4 # include ext
