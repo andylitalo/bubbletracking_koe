@@ -114,6 +114,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     ----------
     .. [1] https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/
     """
+
+    ### PARSE ARGS ###
     # TODO remove this defn
     f = frames_processed
     # extracts keyword arguments for the assign method
@@ -129,20 +131,24 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     ObjectClass = kwargs['ObjectClass']
     object_kwargs = kwargs['object_kwargs']
 
+
+    ### MEASURES PROPERTIES ###
     # computes frame dimesions
     frame_dim = bw_frame.shape
     # measures region props of each object in image
     objects_curr = region_props(bw_frame, n_frame=f, 
                             width_border=width_border, ellipse=ellipse)
 
+    # filters objects for those of desired properties
+    objects_curr = [obj for obj in objects_curr if is_interesting(obj)]
+
+    ### HANDLES CASES WITH EMPTY FRAME ###
     # if no objects seen in previous frame, assigns objects in current frame
     # to new IDs
     if len(objects_prev) == 0:
         for i in range(len(objects_curr)):
-            # only registers objects larger than a minimum size
-            if objects_curr[i]['area'] >= min_size_reg:
-                objects_prev[next_ID] = objects_curr[i]
-                next_ID += 1
+            objects_prev[next_ID] = objects_curr[i]
+            next_ID += 1
 
     # if no objects in current frame, removes objects from dictionary of
     # objects in the previous frame
@@ -154,13 +160,16 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
             # or if our prediction comes from a single data point (so the
             # velocity is uncertain),
             # then the object is deleted from the dictionary
-            if lost_obj(centroid_pred, bw_frame, ID, objects_archive) or (not remember_objects):
+            if lost_obj(centroid_pred, bw_frame, ID, objects_archive) or \
+                (not remember_objects):
                 del objects_prev[ID]
             # otherwise, predicts next centroid, keeping other props the same
             else:
                 objects_prev[ID]['frame'] = f
                 objects_prev[ID]['centroid'] = centroid_pred
 
+
+    ### HANDLES CASE OF TWO FRAMES WITH OBJECTS ###
     # otherwise, assigns objects in current frames to previous objects based
     # on provided distance function
     else:
@@ -203,7 +212,7 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
                 continue
 
             # otherwise, grabs the object ID for the current row,
-            # set its new centroid, and reset the disappeared
+            # set its new centroid, and resets the disappeared
             # counter
             ID = IDs[row]
             objects_prev[ID] = objects_curr[col]
@@ -241,6 +250,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
                 objects_prev[next_ID] = objects_curr[col]
                 next_ID += 1
 
+
+    ### ARCHIVES OBJECTS ###
     # archives objects from this frame in order of increasing ID
     for ID in objects_prev.keys():
         # creates new ordered dictionary of objects if new object
@@ -830,7 +841,8 @@ def out_of_bounds(pt, shape):
         return True
 
 
-def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False):
+def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False,
+                filter_fn=None, filter_kwargs={}):
     """
     Computes properties of objects in a binarized image using OpenCV.
     """
@@ -838,11 +850,17 @@ def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False):
     # TODO -- clean this up
     try:
         import skimage.measure
-        return region_props_skimage(bw_frame, n_frame=n_frame, 
+        objects = region_props_skimage(bw_frame, n_frame=n_frame, 
                                     width_border=width_border)
     except:
-        return region_props_find(bw_frame, n_frame=n_frame, 
+        objects = region_props_find(bw_frame, n_frame=n_frame, 
                     width_border=width_border, ellipse=ellipse)
+
+    # filters out objects with undesired properties if filter fn provided
+    if filter_fn is not None:
+        objects = filter_fn(objects, **filter_kwargs)
+
+    return objects
 
 
 def region_props_connected(bw_frame, n_frame=-1, width_border=5):
@@ -1215,7 +1233,8 @@ def track_obj_py(track_kwargs, highlight_kwargs, assign_kwargs):
         objects_bw = highlight_method(val, track_kwargs['bkgd'], **highlight_kwargs)
 
         # finds objects and assigns IDs to track them, saving to archive
-        next_ID = assign_objects(objects_bw, f, objects_prev, objects_archive, next_ID, **assign_kwargs)
+        next_ID = assign_objects(objects_bw, f, objects_prev, 
+                                    objects_archive, next_ID, **assign_kwargs)
 
         if (f % print_freq*every) == 0:
             print('Processed frame {0:d} of range {1:d}:{2:d}:{3:d}.' \
