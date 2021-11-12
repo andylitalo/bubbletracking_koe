@@ -896,7 +896,7 @@ def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False,
 
     # filters out objects with undesired properties if filter fn provided
     if filter_fn is not None:
-        objects = filter_fn(objects, **filter_kwargs)
+        objects = [obj for obj in objects if filter_fn(obj, **filter_kwargs)]
 
     return objects
 

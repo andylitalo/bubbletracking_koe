@@ -318,7 +318,8 @@ def get_paths(p, replace=True):
 
 
 def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs, 
-                vid_path, input_path, data_path, dist=False, dist_tag='_dist'):
+                vid_path, input_path, data_path, dist=False, dist_tag='_dist',
+                n_filter=0):
     """
     Saves data and metadata from object-tracking.
 
@@ -342,13 +343,17 @@ def save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs,
     dist_tag : string, optional
         Characters added to the end of `datapath` (before extension) 
         to indicate that data file is distributable. Default '_dist'
+    n_filter : int, optional
+        Index of filter used on objects. Default is 0 (no filter).
 
     Returns nothing.
     """
     # collects metadata -- separately adds highlight_kwargs for quick highlight call
     metadata = {'highlight_kwargs' : highlight_kwargs, 
                 'vid_path' : vid_path,
-                'n_frames' : basic.count_frames(vid_path)}
+                'n_frames' : basic.count_frames(vid_path),
+                'filter_fn' : cfg.filters[n_filter][0],
+                'filter_kwargs' : cfg.filters[n_filter][1]}
     # adds remaining metadata from parameter dictionary and other keyword arguments
     param_dicts = (p, track_kwargs, assign_kwargs)
     for d in param_dicts:

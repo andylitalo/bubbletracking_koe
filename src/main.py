@@ -103,7 +103,7 @@ def main():
     # stores metadata (I will not store video parameters or parameters from the
     # input file since they are stored elsewhere already)
     mh.save_data(objs, frame_IDs, p, track_kwargs, highlight_kwargs, assign_kwargs, 
-                vid_path, input_path, data_path, dist=dist)
+                vid_path, input_path, data_path, dist=dist, n_filter=n_filter)
 
     return
 

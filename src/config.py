@@ -30,8 +30,13 @@ black = (0, 0, 0)
 red = (255, 0, 0)
 
 # bubble filtering
+def test_filter(objects):
+    return True
+    
 filters = {0 : (None, {}),
             1 : (improc.filter_sph, {'min_size' : 12, 
                                     'min_solidity' : 0.9, 
                                     'max_w_over_h' : 2}),
-            }
+            2 : (test_filter, {})}
+
+

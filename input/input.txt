@@ -1,4 +1,4 @@
-input_name = test3 # name for this set of parameters, no apostrophes
+input_name = testfilt1 # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
 eta_i = 0.025 # inner stream viscosity [Pa.s]
