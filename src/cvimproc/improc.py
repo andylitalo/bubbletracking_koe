@@ -41,11 +41,12 @@ import cvvidproc
 
 def appears_in_consec_frames(obj, n_consec=1):
     """Returns True if object appears in consecutive frames."""
-    return len(np.where(np.diff(obj.get_props('frame'))==1)[0]) >= n_consec
+    return len(np.where( \
+                np.diff(obj.get_props('frame'))==1)[0]) >= n_consec
 
 
-def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive, 
-                next_ID, kwargs):
+def assign_objects(bw_frame, frames_processed, objects_prev, 
+                    objects_archive, next_ID, kwargs):
     """
     Assigns objects with unique IDs to the labeled objects on the video
     frame provided. This method is used on a single frame in the context of
@@ -118,7 +119,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     ### PARSE ARGS ###
     # TODO remove this defn
     f = frames_processed
-    # extracts keyword arguments for the assign method
+    # extracts keyword arguments for the assign method (not explicitly
+    # requested args to match syntax of CvVidProc library)
     fps = kwargs['fps']
     d_fn = kwargs['d_fn']
     d_fn_kwargs = kwargs['d_fn_kwargs']
@@ -130,17 +132,21 @@ def assign_objects(bw_frame, frames_processed, objects_prev, objects_archive,
     ellipse = kwargs['ellipse']
     ObjectClass = kwargs['ObjectClass']
     object_kwargs = kwargs['object_kwargs']
-
+    # only grabs filter and args if provided
+    try:
+        filter_fn = kwargs['filter_fn']
+        filter_kwargs = kwargs['filter_kwargs']
+    except:
+        filter_fn = None
+        filter_kwargs = {}
 
     ### MEASURES PROPERTIES ###
     # computes frame dimesions
     frame_dim = bw_frame.shape
     # measures region props of each object in image
     objects_curr = region_props(bw_frame, n_frame=f, 
-                            width_border=width_border, ellipse=ellipse)
-
-    # filters objects for those of desired properties
-    objects_curr = [obj for obj in objects_curr if is_interesting(obj)]
+                            width_border=width_border, ellipse=ellipse,
+                            filter_fn=filter_fn, filter_kwargs=filter_kwargs)
 
     ### HANDLES CASES WITH EMPTY FRAME ###
     # if no objects seen in previous frame, assigns objects in current frame
