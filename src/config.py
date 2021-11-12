@@ -28,3 +28,10 @@ d_fn = improc.bubble_distance_v
 white = (255, 255, 255)
 black = (0, 0, 0)
 red = (255, 0, 0)
+
+# bubble filtering
+filters = {0 : (None, {}),
+            1 : (improc.filter_sph, {'min_size' : 12, 
+                                    'min_solidity' : 0.9, 
+                                    'max_w_over_h' : 2}),
+            }

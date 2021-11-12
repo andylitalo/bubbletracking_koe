@@ -132,13 +132,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev,
     ellipse = kwargs['ellipse']
     ObjectClass = kwargs['ObjectClass']
     object_kwargs = kwargs['object_kwargs']
-    # only grabs filter and args if provided
-    try:
-        filter_fn = kwargs['filter_fn']
-        filter_kwargs = kwargs['filter_kwargs']
-    except:
-        filter_fn = None
-        filter_kwargs = {}
+    filter_fn = kwargs['filter_fn']
+    filter_kwargs = kwargs['filter_kwargs']
 
     ### MEASURES PROPERTIES ###
     # computes frame dimesions
@@ -489,6 +484,43 @@ def d_off_flow(obj1, obj2, flow_dir, penalty=1E10):
 
     return d
    
+
+def filter_sph(obj, min_size=12, min_solidity=0.9, max_w_over_h=2):
+    """
+    Returns True if object is roughly spherical and the right size and False
+    if not.
+
+    Parameters
+    ----------
+    obj : TrackedObj
+        Object to filter.
+    
+    Returns
+    -------
+    passed : bool
+        True if passed filter (spherical and right size) and False if not.
+    """
+    # The following are "uninteresting":
+    # small objects
+    if obj['area'] <= min_size:
+        return False
+    # concave objects
+    if obj['solidity'] <= min_solidity:
+        return False
+    # objects on border of frame
+    if obj['on border']:
+        return False 
+    # objects that are too oblong
+    w = obj['bbox'][3] - obj['bbox'][1]
+    h = obj['bbox'][2] - obj['bbox'][0]
+    if w / h >= max_w_over_h:
+        return False
+    # # objects almost as wide as inner stream
+    # if h >= inner_stream_frac*inner_stream_width:
+    #     return False 
+
+    return True
+
 
 def find_label(frame_labeled, rc, cc):
     """

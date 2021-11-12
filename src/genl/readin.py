@@ -50,6 +50,8 @@ def parse_args():
                     help='If 1, remembers objects by extrapolating centroid.')
     ap.add_argument('-d' ,'--dist', default=1, type=int,
                     help='If 1, data saved to be distributable (no classes).')
+    ap.add_argument('-n', '--n_filter', default=0, type=int,
+                    help='Number of desired filter for objects (0 is none). See config.py for defns.')
     args = vars(ap.parse_args())
 
     # extracts and formats individual parameters
@@ -60,9 +62,11 @@ def parse_args():
     use_prev_bkgd = bool(args['use_prev_bkgd'])
     remember_objects = bool(args['remember'])
     dist = bool(args['dist'])
+    n_filter = int(args['n_filter'])
 
     return input_file, check, print_freq, replace, \
-                use_prev_bkgd, remember_objects, dist
+                use_prev_bkgd, remember_objects, dist, \
+                n_filter
 
 
 def load_params(input_file):

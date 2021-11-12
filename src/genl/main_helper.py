@@ -32,7 +32,8 @@ import config as cfg
 
 def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi, 
                     v_max, v_interf, pix_per_um, remember_objects=False,
-                    ellipse=True, ObjectClass=Bubble, object_kwargs={}):
+                    ellipse=True, ObjectClass=Bubble, object_kwargs={},
+                    n_filter=0):
     """
     Collects keyword arguments for CvVidProc's object-tracking algorithm.
     See API for CvVidProc library on UkoeHB's github for more details.
@@ -71,6 +72,12 @@ def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi,
         microfluidic flow)
     object_kwargs : dictionary
         Keyword arguments used in the initialization of an object from ObjectClass
+    filter_fn : functor, optional
+        Takes a TrackedObj as an argument and returns True if it passes the
+        filter and False if not. Default None.
+    filter_kwargs : dictionary, optional
+        Argments of the filter_fn functor given as keyword arguments in a
+        dictionary. Mostly thresholds. Default is empty {}.
 
     Returns
     -------
@@ -121,6 +128,8 @@ def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi,
         'ellipse' : ellipse,
         'ObjectClass' : ObjectClass,
         'object_kwargs' : object_kwargs,
+        'filter_fn' : cfg.filters[n_filter][0],
+        'filter_kwargs' : cfg.filters[n_filter][1],
     }               
 
     return track_kwargs, highlight_kwargs, assign_kwargs
