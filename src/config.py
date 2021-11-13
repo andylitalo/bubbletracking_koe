@@ -8,6 +8,8 @@ Author: Andy Ylitalo
 Date: April 29, 2021
 """
 
+import numpy as np
+
 import cvimproc.improc as improc
 
 # directories
@@ -36,7 +38,7 @@ def test_filter(objects):
 filters = {0 : (None, {}),
             1 : (improc.filter_sph, {'min_size' : 12, 
                                     'min_solidity' : 0.9, 
-                                    'max_w_over_h' : 2}),
+                                    'max_angle' : np.pi/10}),
             2 : (test_filter, {})}
 
 

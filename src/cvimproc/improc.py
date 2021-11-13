@@ -485,7 +485,8 @@ def d_off_flow(obj1, obj2, flow_dir, penalty=1E10):
     return d
    
 
-def filter_sph(obj, min_size=12, min_solidity=0.9, max_w_over_h=2):
+def filter_sph(obj, min_size=12, min_solidity=0.9, max_angle=np.pi/10,
+                aspect_ratio_sph=1.3):
     """
     Returns True if object is roughly spherical and the right size and False
     if not.
@@ -513,11 +514,11 @@ def filter_sph(obj, min_size=12, min_solidity=0.9, max_w_over_h=2):
     # objects that are too oblong
     w = obj['bbox'][3] - obj['bbox'][1]
     h = obj['bbox'][2] - obj['bbox'][0]
-    if w / h >= max_w_over_h:
+    # objects that are not oriented along flow direction and elongated
+    if (np.abs(obj['orientation'] + np.pi/2) > max_angle) and \
+            (np.abs(obj['orientation'] - np.pi/2) > max_angle) and \
+            (w / h > aspect_ratio_sph):
         return False
-    # # objects almost as wide as inner stream
-    # if h >= inner_stream_frac*inner_stream_width:
-    #     return False 
 
     return True
 

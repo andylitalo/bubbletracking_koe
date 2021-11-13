@@ -48,6 +48,8 @@ def parse_args():
     ap.add_argument('--offset', default=5, type=int, help='Offset of labels to the right.')
     ap.add_argument('-q', '--quiet', default=False, type=int,
                     help='If True, will not print out success report upon saving image.')
+    ap.add_argument('-k', '--save_bkgd_sub', default=0, type=int,
+                    help='If 1, saves background-subtracted image, too.')
     args = vars(ap.parse_args())
 
     return args
@@ -236,7 +238,7 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
                             data_subdir, figs_subdir, skip_blanks=True,
                             brightness=3.0, ext='jpg', color_object=True,
                             offset=5, quiet=False, label_color_method=bubble_label_color,
-                            label_kwargs={}):
+                            label_kwargs={}, save_bkgd_sub=False):
     """
     Highlights objects in the video specified in the input file using data
     from the object-tracking in `src/main.py`. Then saves images.
@@ -272,6 +274,8 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
     std_color, border_color, error_color : 3-tuple of uint8s, opt (default white, black, red)
         Colors for labels of standard objects, objects on the border, and objects that
         raised some kind of red flag or error
+    save_bkgd_sub : bool, optional
+        If True, saves background-subtracted image. Default is False.
 
     Returns nothing.
     """
@@ -318,6 +322,18 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
         save_path = os.path.join(figs_dir, '{0:d}.{1:s}'.format(f, ext))
         basic.save_image(im_labeled, save_path)
 
+        # saves background-subtracted image if requested
+        if save_bkgd_sub:
+            # crops frame
+            row_lo = metadata['row_lo']
+            row_hi = metadata['row_hi']
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # highlights object according to parameters from data file
+            bkgd = metadata['bkgd']
+            bkgd_sub = cv2.absdiff(frame[row_lo:row_hi, :], bkgd)
+            save_path = os.path.join(figs_dir, 'bkg_sub_{0:d}.{1:s}'.format(f, ext))
+            basic.save_image(bkgd_sub, save_path)
+
         # prints out success
         if not quiet:
             print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
@@ -337,6 +353,7 @@ def main():
     color_object = bool(args['color_object'])
     offset = args['offset']
     quiet = args['quiet']
+    save_bkgd_sub = args['save_bkgd_sub']
 
     # loads parameters from input file
     p = readin.load_params(os.path.join(cfg.input_dir, input_file))
@@ -346,7 +363,7 @@ def main():
                             cfg.data_subdir, cfg.figs_subdir, 
                             skip_blanks=skip_blanks, brightness=brightness, 
                             ext=ext, color_object=color_object, offset=offset, 
-                            quiet=quiet)
+                            quiet=quiet, save_bkgd_sub=save_bkgd_sub)
 
     return
 
