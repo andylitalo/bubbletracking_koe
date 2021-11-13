@@ -508,9 +508,6 @@ def filter_sph(obj, min_size=12, min_solidity=0.9, max_angle=np.pi/10,
     # concave objects
     if obj['solidity'] <= min_solidity:
         return False
-    # objects on border of frame
-    if obj['on border']:
-        return False 
     # objects that are too oblong
     w = obj['bbox'][3] - obj['bbox'][1]
     h = obj['bbox'][2] - obj['bbox'][0]
