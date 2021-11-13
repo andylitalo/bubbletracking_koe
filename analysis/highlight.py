@@ -50,6 +50,8 @@ def parse_args():
                     help='If True, will not print out success report upon saving image.')
     ap.add_argument('-k', '--save_bkgd_sub', default=0, type=int,
                     help='If 1, saves background-subtracted image, too.')
+    ap.add_argument('-t', '--save_thresh', default=0, type=int,
+                    help='If 1, saves thresholded bkgd-subt image.')
     args = vars(ap.parse_args())
 
     return args
@@ -186,12 +188,11 @@ def highlight_image(image, f, highlight_method, metadata, objs, IDs,
     row_hi = metadata['row_hi']
     frame = image[row_lo:row_hi, :]
     # extracts value channel
-    # val = basic.get_val_channel(frame)
-    val = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    im_bw = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # highlights object according to parameters from data file
     bkgd = metadata['bkgd']
-    highlighted = highlight_method(val, bkgd, **metadata['highlight_kwargs'])
+    highlighted = highlight_method(im_bw, bkgd, **metadata['highlight_kwargs'])
     # applies highlights
     frame_labeled, num_labels = skimage.measure.label(highlighted, return_num=True)
     # OpenCV version--less convenient
@@ -238,7 +239,7 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
                             data_subdir, figs_subdir, skip_blanks=True,
                             brightness=3.0, ext='jpg', color_object=True,
                             offset=5, quiet=False, label_color_method=bubble_label_color,
-                            label_kwargs={}, save_bkgd_sub=False):
+                            label_kwargs={}, save_bkgd_sub=False, save_thresh=False):
     """
     Highlights objects in the video specified in the input file using data
     from the object-tracking in `src/main.py`. Then saves images.
@@ -276,6 +277,8 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
         raised some kind of red flag or error
     save_bkgd_sub : bool, optional
         If True, saves background-subtracted image. Default is False.
+    save_thresh : bool, optional
+        If True, saves thresholded image using normal threshold. Default is False.
 
     Returns nothing.
     """
@@ -334,6 +337,11 @@ def highlight_and_save_tracked_video(p, input_dir, output_dir,
             save_path = os.path.join(figs_dir, 'bkg_sub_{0:d}.{1:s}'.format(f, ext))
             basic.save_image(bkgd_sub, save_path)
 
+            if save_thresh:
+                im_bw = improc.thresh_im(bkgd_sub, thresh=p['th'])
+                save_path = os.path.join(figs_dir, 'bw_{0:d}.{1:s}'.format(f, ext))
+                basic.save_image(im_bw, save_path)
+     
         # prints out success
         if not quiet:
             print('Saved frame {0:d} in {1:d}:{2:d}:{3:d}.'.format(f, 
@@ -354,6 +362,7 @@ def main():
     offset = args['offset']
     quiet = args['quiet']
     save_bkgd_sub = args['save_bkgd_sub']
+    save_thresh = args['save_thresh']
 
     # loads parameters from input file
     p = readin.load_params(os.path.join(cfg.input_dir, input_file))
@@ -363,7 +372,8 @@ def main():
                             cfg.data_subdir, cfg.figs_subdir, 
                             skip_blanks=skip_blanks, brightness=brightness, 
                             ext=ext, color_object=color_object, offset=offset, 
-                            quiet=quiet, save_bkgd_sub=save_bkgd_sub)
+                            quiet=quiet, save_bkgd_sub=save_bkgd_sub,
+                            save_thresh=save_thresh)
 
     return
 
