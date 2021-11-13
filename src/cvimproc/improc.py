@@ -1187,7 +1187,7 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
     """
     # counts number of frames to analyze
     end = basic.get_frame_count(track_kwargs['vid_path'], track_kwargs['end'])
-    n_frames = int( (end-track_kwargs['start'])/track_kwargs['every'] )
+    n_frames =  end# int( (end-track_kwargs['start'])/track_kwargs['every'] )
 
     # collects parameters for highlighting objects package (CvVidProc param)
     highlight_objects_pack = cvvidproc.HighlightObjectsPack(
