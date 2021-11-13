@@ -647,7 +647,7 @@ def highlight_obj(frame, bkgd, th_lo, th_hi, min_size, selem,
     # smooths out thresholded image
     opened = cv2.morphologyEx(thresh_bw, cv2.MORPH_OPEN, selem)
     # removes small objects
-    small_obj_rm = remove_small_objects(opened, min_size_hyst)
+    small_obj_rm = remove_small_objects(opened, min_size)
     # fills in holes, including those that might be cut off at border
     highlighted_objects = frame_and_fill(small_obj_rm, width_border)
 
@@ -1187,7 +1187,7 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
     """
     # counts number of frames to analyze
     end = basic.get_frame_count(track_kwargs['vid_path'], track_kwargs['end'])
-    n_frames =  end# int( (end-track_kwargs['start'])/track_kwargs['every'] )
+    n_frames = int( (end-track_kwargs['start'])/track_kwargs['every'] )
 
     # collects parameters for highlighting objects package (CvVidProc param)
     highlight_objects_pack = cvvidproc.HighlightObjectsPack(
