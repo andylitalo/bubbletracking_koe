@@ -77,6 +77,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev,
     next_ID : int
         Next ID number to be assigned (increasing order)
     kwargs : dictionary
+        start : int
+            First frame index grabbed for analysis (0-indexed)
         fps : float
             Frames per second of video
         d_fn : functor
@@ -117,10 +119,9 @@ def assign_objects(bw_frame, frames_processed, objects_prev,
     """
 
     ### PARSE ARGS ###
-    # TODO remove this defn
-    f = frames_processed
     # extracts keyword arguments for the assign method (not explicitly
     # requested args to match syntax of CvVidProc library)
+    start = kwargs['start']
     fps = kwargs['fps']
     d_fn = kwargs['d_fn']
     d_fn_kwargs = kwargs['d_fn_kwargs']
@@ -134,6 +135,8 @@ def assign_objects(bw_frame, frames_processed, objects_prev,
     object_kwargs = kwargs['object_kwargs']
     filter_fn = kwargs['filter_fn']
     filter_kwargs = kwargs['filter_kwargs']
+    # determines current frame number (0-indexed)
+    f = frames_processed + start
 
     ### MEASURES PROPERTIES ###
     # computes frame dimesions
@@ -1212,6 +1215,7 @@ def track_obj_cvvidproc(track_kwargs, highlight_kwargs, assign_kwargs):
         vid_path=track_kwargs['vid_path'],
         highlight_objects_pack=highlight_objects_pack,
         assign_objects_pack=assign_objects_pack,
+        start_frame=track_kwargs['start'],
         frame_limit=n_frames, # must be int
         grayscale=True, # Whether to interpret the video has grayscale (TODO what's the difference b/w this and next param?)
         vid_is_grayscale=True, # Whether the video should be treated as already grayscale (optimization)

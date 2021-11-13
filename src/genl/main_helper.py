@@ -117,6 +117,7 @@ def collect_kwargs(p, vid_path, bkgd, mask_data, flow_dir, row_lo, row_hi,
     }
     # label assignment/tracking keyword arguments
     assign_kwargs = {
+        'start' : p['start'],
         'fps' : fn.parse_vid_path(vid_path)['fps'],  # extracts fps from video filepath
         'd_fn' : cfg.d_fn,
         'd_fn_kwargs' : d_fn_kwargs,
