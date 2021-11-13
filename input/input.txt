@@ -1,4 +1,4 @@
-input_name = testfilt1_hi1 # name for this set of parameters, no apostrophes
+input_name = testfilt1_lo1 # name for this set of parameters, no apostrophes
 
 ########################## FLOW PARAMETERS #####################################
 eta_i = 0.025 # inner stream viscosity [Pa.s]
@@ -10,15 +10,15 @@ R_o = 150 # outer radius of observation capillary [um]
 selem_dim = 2 # structuring element width in pixels
 width_border = 1 # number of pixels along border to exclude
 num_frames_for_bkgd = 1000 # number of frames to average to compute the background
-start = 0 # frame to start processing at
-end = -1 # frame to end processing at (not included)
-every =  1 # processes every this number of frames (1 means every frame)
-th = 45 # threshold value for standard thresholding
-th_lo = 30 # low threshold value for hysteresis thresholding
-th_hi = 50 # high threshold value for hysteresis thresholding
-min_size_hyst = 12 # minimum size of object kept after hysteresis thresholding
-min_size_th = 12 # minimum size of object kept after standard thresholding
-min_size_reg = 12 # minimum size of object to be registered as a bubble
+start = 4700 # frame to start processing at
+end = 4801 # frame to end processing at (not included)
+every =  1 # no-op--processes every <this number> of frames (1 means every frame)
+th = 25 # threshold value for standard thresholding
+th_lo = 20 # low threshold value for hysteresis thresholding
+th_hi = 30 # high threshold value for hysteresis thresholding
+min_size_hyst = 2 # minimum size of object kept after hysteresis thresholding
+min_size_th = 2 # minimum size of object kept after standard thresholding
+min_size_reg = 2 # minimum size of object to be registered as a bubble
 camera = photron # photron if using Photron NOVA S6, chronos if using Chronos 1.4
 
 ############################# FILE PARAMETERS ##################################

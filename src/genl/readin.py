@@ -91,7 +91,8 @@ def load_params(input_file):
     p['width_border'] = int(params['width_border'])
     p['start'] = int(params['start'])
     p['end'] = int(params['end'])
-    p['every'] = int(params['every'])
+    p['every'] = 1 #*No-op until CvVidProc updated to allow skipping frames
+    # int(params['every'])
     # determines thresholds
     p['th'] = int(params['th']) # uniform threshold
     p['th_lo'] = int(params['th_lo']) # low hysteresis threshold
