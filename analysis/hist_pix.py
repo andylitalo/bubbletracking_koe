@@ -27,6 +27,7 @@ import cv2
 import PIL.Image
 import skimage.filters
 from sklearn.cluster import KMeans
+import pandas as pd
 
 # imports custom libraries
 import cvimproc.improc as improc
@@ -41,7 +42,9 @@ import analysis.statlib as stat
 vid_path = '../input/sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10.mp4' 
 #'../input/sd301_co2/20210403_76bar/sd301_co2_40000_001_050_0280_88_04_10.mp4'
 # path to save folder
-save_path = '../output/hist_pix/sd301_co2_40000_001_050_0280_88_04_10/'
+save_path = '../output/analysis/hist_pix/sd301_co2/20210207_88bar/sd301_co2_15000_001_100_0335_79_04_10/' #sd301_co2_40000_001_050_0280_88_04_10/'
+figs_subdir = 'figs'
+data_subdir = 'data'
 # extension for images to save
 ext = 'jpg'
 # analysis parameters
@@ -92,6 +95,8 @@ def parse_args():
 
 def main():
 
+    print('save_path', save_path)
+
     ### SETUP
     # reads args
     frame_start, frame_end, stop_early,\
@@ -127,36 +132,36 @@ def main():
             im = PIL.Image.fromarray(frame)
         # saves image if requested
         if save:
-            im.save(os.path.join(save_path, '{0:d}.{1:s}'.format(f, ext)))
+            im.save(os.path.join(save_path, figs_subdir,'{0:d}.{1:s}'.format(f, ext)))
 
-        # plots histogram of signed bkgd-sub image
-        signed_diff = frame.astype(int) - bkgd.astype(int)
-        plt.figure()
-        _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
-        plt.ylim(0, hist_max)
-        plt.title('{0:d}'.format(f))
-        # saves if requested
-        if save:
-            plt.savefig(os.path.join(save_path, 'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
-        plt.close()
-
-        # saves false-color signed bkgd-sub image if colormap provided
-        if len(colormap) > 0:
-            # scales brightness of pixels to saturation (or near it)
-            scale = int(255 / np.max(np.abs(signed_diff)))
-            fig = plt.figure(figsize=(10, 0.5))
-            ax = fig.add_subplot(111)
-            fc = ax.pcolormesh(scale*signed_diff, cmap=cmap, rasterized=True, vmin=-255, vmax=255)
-            fig.colorbar(fc, ax=ax, aspect=5)
-            plt.savefig(os.path.join(save_path, 'fc_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
+            # plots histogram of signed bkgd-sub image
+            signed_diff = frame.astype(int) - bkgd.astype(int)
+            plt.figure()
+            _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
+            plt.ylim(0, hist_max)
+            plt.title('{0:d}'.format(f))
+            # saves if requested
+            plt.savefig(os.path.join(save_path, figs_subdir,'hist_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
             plt.close()
+
+            # saves false-color signed bkgd-sub image if colormap provided
+            if len(colormap) > 0:
+                # scales brightness of pixels to saturation (or near it)
+                scale = int(255 / np.max(np.abs(signed_diff)))
+                fig = plt.figure(figsize=(10, 0.5))
+                ax = fig.add_subplot(111)
+                fc = ax.pcolormesh(scale*signed_diff, cmap=cmap, rasterized=True, vmin=-255, vmax=255)
+                fig.colorbar(fc, ax=ax, aspect=5)
+                plt.savefig(os.path.join(save_path, figs_subdir,'fc_{0:d}.{1:s}'.format(f, ext)), bbox_inches='tight')
+                plt.close()
 
 
     ### STATISTICS
 
     # aggregates stats of frames in video
-    mean_list, mean_sq_list, stdev_list, min_val_list = stat.proc_stats(vid_path, 
-                                                                bkgd, end)
+    mean_list, mean_sq_list, stdev_list, \
+    min_val_list = stat.proc_stats(vid_path, mask_data, 
+                                    bkgd[row_lo:row_hi, :], end)
 
     # computes stats of full video
     mu = np.mean(mean_list)
@@ -171,46 +176,59 @@ def main():
     print('Mean min = {0:.2f}; std min = {1:.2f}; mu - {2:.1f}*sigma = {3:.2f}'.format(mu_min,
                         sigma_min, n_sigma, mu_min - n_sigma*sigma_min))
 
+    # saves stats
+    columns = ['mean', 'min', 'stdev']
+    data = np.stack( (np.asarray(mean_list),
+                        np.asarray(min_val_list),
+                        np.asarray(stdev_list)), axis=1)
+    df = pd.DataFrame(data=data, columns=columns)
+    df.to_csv(os.path.join(save_path, data_subdir, 
+                            'frame_stats.csv'), index=False)
 
     ### PLOTS OVERALL HISTOGRAMS OF VIDEOS
     # MEAN
-    plt.figure()
-    _ = plt.hist(mean_list, n_bins, histtype='step')
-    plt.ylim([0, hist_max])
-    plt.plot([mu, mu], [0, hist_max], 'k-', label='overall mean = {0:.2f}'.format(mu))
-    plt.title('Mean')
-    plt.legend()
-    # saves figure
     if save:
-        plt.savefig(os.path.join(save_path, 'mean_hist.png'))
+        plt.figure()
+        _ = plt.hist(mean_list, n_bins, histtype='step')
+        plt.ylim([0, hist_max])
+        plt.plot([mu, mu], [0, hist_max], 'k-', label='overall mean = {0:.2f}'.format(mu))
+        plt.title('Mean')
+        plt.legend()
+        # saves figure
+        plt.savefig(os.path.join(save_path, figs_subdir,'mean_hist.png'))
 
-    # STANDARD DEVIATION
-    plt.figure()
-    _ = plt.hist(stdev_list, n_bins, histtype='step')
-    plt.ylim([0, hist_max])
-    plt.plot([sigma, sigma], [0, hist_max], 'k-', label='overall stdev = {0:.2f}'.format(sigma))
-    plt.title('Standard Deviation')
-    plt.legend()
-    # saves figure
-    if save:
-        plt.savefig(os.path.join(save_path, 'stdev_hist.png'))
+        # STANDARD DEVIATION
+        plt.figure()
+        _ = plt.hist(stdev_list, n_bins, histtype='step')
+        plt.ylim([0, hist_max])
+        plt.plot([sigma, sigma], [0, hist_max], 'k-', label='overall stdev = {0:.2f}'.format(sigma))
+        plt.title('Standard Deviation')
+        plt.legend()
+        # saves figure
+        plt.savefig(os.path.join(save_path, figs_subdir,'stdev_hist.png'))
 
-    # MINIMUM
-    plt.figure()
-    _ = plt.hist(min_val_list, n_bins, histtype='step')
-    plt.title('Minimum')
-    plt.ylim([0, hist_max])
-    plt.plot([mu_min, mu_min], [0, hist_max], 'k-', label='mu')
-    threesig = mu_min - 3*sigma_min
-    fivesig = mu_min - 5*sigma_min
-    plt.plot([threesig, threesig], [0, hist_max], 'b--', 
-                    label=r'$\mu - 3\sigma$' + '{0:.2f}'.format(threesig))
-    plt.plot([fivesig, fivesig], [0, hist_max], 'g--', 
-                    label=r'$\mu - 5\sigma$' + '{0:.2f}'.format(fivesig))
-    plt.legend()
-    # saves figure
-    if save:
-        plt.savefig(os.path.join(save_path, 'min_hist.png'))
+        # MINIMUM
+        plt.figure()
+        _ = plt.hist(min_val_list, n_bins, histtype='step')
+        plt.title('Minimum')
+        plt.ylim([0, hist_max])
+        plt.plot([mu_min, mu_min], [0, hist_max], 'k-', label='mu')
+        threesig = mu_min - 3*sigma_min
+        fivesig = mu_min - 5*sigma_min
+        plt.plot([threesig, threesig], [0, hist_max], 'b--', 
+                        label=r'$\mu - 3\sigma$' + '{0:.2f}'.format(threesig))
+        plt.plot([fivesig, fivesig], [0, hist_max], 'g--', 
+                        label=r'$\mu - 5\sigma$' + '{0:.2f}'.format(fivesig))
+        plt.legend()
+        # saves figure
+        plt.savefig(os.path.join(save_path, figs_subdir,'min_hist.png'))
+
+        ####################### TIME SERIES ########################################
+        plt.figure()
+        _ = plt.plot(min_val_list, 'b-')
+        plt.xlabel('frame number')
+        plt.ylabel('minimum intensity')
+        plt.savefig(os.path.join(save_path, figs_subdir,'min_series.png'))
 
 
     ####################### ROUND 2 OF ANALYSIS #############################
@@ -304,7 +322,7 @@ def main():
             else:
                 im = PIL.Image.fromarray(frame)
             if save:
-                im.save(os.path.join(save_path, sub_dir, '{0:d}.{1:s}'.format(f, ext)))
+                im.save(os.path.join(save_path, figs_subdir,sub_dir, '{0:d}.{1:s}'.format(f, ext)))
             # plotting as step is faster
             plt.figure()
             _ = plt.hist(signed_diff.flatten(), n_bins_im, histtype='step')
@@ -312,7 +330,7 @@ def main():
             plt.title('f{0:d}; mean = {1:.2f}; std = {2:.2f}; min = {3:d}'.format(f, \
                                         mean, stdev, int(min_val)))
             if save:
-                plt.savefig(os.path.join(save_path, sub_dir, \
+                plt.savefig(os.path.join(save_path, figs_subdir,sub_dir, \
                                         'hist_{0:d}.{1:s}'.format(f, ext)))
             plt.close()
 
