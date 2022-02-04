@@ -11,7 +11,7 @@ import numpy as np
 import pickle as pkl
 import ctypes
 
-from tk import messagebox
+from tkinter import messagebox
 
 # imports custom libraries
 import genl.pltg as pltg
