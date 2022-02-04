@@ -12,7 +12,7 @@ import pickle as pkl
 import ctypes
 import cv2
 
-from tkinter import messagebox
+from tk import messagebox
 
 # imports custom libraries
 import genl.pltg as pltg
