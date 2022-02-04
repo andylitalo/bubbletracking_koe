@@ -26,10 +26,14 @@ Data are saved as a pickle file.
 
  - `cvvidproc` and its dependencies (described [here](https://github.com/UkoeHB/CvVidProc))
  - `opencv` accessible to your Python installation (installation with conda forge [here](https://anaconda.org/conda-forge/opencv); see `cvvidproc` page above for further options)
- - `tkinter` (`pip install tk`)
+ - `tkinter` (`pip install tk`; if you get the error 
+        `ModuleNotFoundError: No module named 'tkinter'` on Linux, 
+        run `sudo apt-get install python3-tk`)
  - `argparse` (`pip install argparse`)
  - `matplotlib` (`pip install matplotlib`)
  - `pandas` (`pip install pandas` or see extensive guide [here](https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html)) 
+ - `skimage` (`pip install scikit-image`)
+ - `bokeh` (`pip install bokeh`)
 
 ## Running Bubble Tracking
 
