@@ -83,7 +83,23 @@ def one_2_uint8(one_arr):
 
 
 def parse_vid_folder(vid_folder):
-    """Parses video folder of format <yyyymmdd>_<p_sat>bar"""
+    """
+    Parses video folder of format <yyyymmdd>_<p_sat><units>
+    
+    Parameters
+    ----------
+    vid_folder : string
+        Directory in which video is saved (excludes filename)
+    
+    Returns
+    -------
+    date : string
+        Date of experiment <yyyymmdd>
+    p_sat : int
+        Pressure at which inner stream was saturated 
+    p_sat_units : string
+        Units of p_sat
+    """
     # first extracts direct folder for video if others included in path
     vid_folder_list = split_folders(vid_folder)
     vid_folder = vid_folder_list[-1]
@@ -95,6 +111,27 @@ def parse_vid_folder(vid_folder):
     return date, p_sat, p_sat_units
 
 def parse_vid_path(vid_path):
+    """
+    Parses the video filepath to extract metadata.
+        
+    Parameters
+    ----------
+    vid_path : string
+        Filepath to video of form <directory>/
+        <prefix>_<fps>_<exposure time>_<inner stream flow rate [uL/min]>_
+        <outer stream flow rate [uL/min]>_<distance along observation capillary [mm]>_
+        <magnification of objective lens>_<number of video in series>.<ext>
+    
+    Returns
+    -------
+    params : dictionary
+        Items: 'prefix' (string, usually polyol and gas), 
+            'fps' (int, frames per second), 'exp_time' (float, exposure time [us]),
+            'Q_i' (float, inner stream flow rate [ul/min]), 
+            'Q_o' (int, outer stream flow rate [uL/min]), 
+            'd' (int, distance along observation capillary [mm]),
+            'mag' (int, magnification of objective lens), 'num' (int, number of video in series)
+    """
     i_start = vid_path.rfind(os.path.sep)
     vid_file = vid_path[i_start+1:]
     # cuts out extension and splits by underscores

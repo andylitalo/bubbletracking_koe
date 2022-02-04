@@ -314,6 +314,28 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi,
     return d
 
 
+def bubble_distinction():
+    """
+    Builds on `bubble_distance_v()` by incorporating score for
+    shape and size similarity in determining if something is a 
+    bubble or not.
+
+    Still prototyping this.
+
+    Distinguishing features:
+    - Distance off axis (already in bubble_distance_v)
+    - Distance along axis relative to prediction based on 
+    velocity (already in bubble_distance_v)
+    - Shape similarity (aspect ratio, solidity, orientation)
+    - Size similarity (area, bounding box width and height, major and minor axes)
+
+    Can I tune a model to predict similarity based on these parameters?
+    Which parameters do I already have access to?
+    """
+
+    pass
+
+
 def compute_bkgd_mean(vid_path, num_frames=100, print_freq=10):
     """
     Same as compute_bkgd_med() but computes mean instead of median. Very slow.
@@ -753,7 +775,7 @@ def obj_d_mat(objects_prev, objects_curr, d_fn, d_fn_kwargs):
     ----------
     objects_prev : list of dictionaries
         List of dictionaries of properties of objects in previous frame
-        *Dictionaries must included 'centroid' property
+        *Dictionaries must include 'centroid' property
     objects_curr : list of dictionaries
         Same as objects_prev but for objects in current frame
     d_fn : function
@@ -821,6 +843,7 @@ def region_props(bw_frame, n_frame=-1, width_border=5, ellipse=False):
     except:
         return region_props_find(bw_frame, n_frame=n_frame, 
                     width_border=width_border, ellipse=ellipse)
+
 
 def region_props_connected(bw_frame, n_frame=-1, width_border=5):
     """
@@ -942,9 +965,10 @@ def region_props_find(bw_frame, n_frame=-1, width_border=5, ellipse=True):
 
 def region_props_skimage(bw_frame, n_frame=-1, width_border=5):
     """
-    TODO -- rewrite region_props_find() using skimage and saving
-    other interesting region props like clips of images of the 
-    objects.
+    Extracts region properties using sci-kit image library instead
+    of OpenCV. OpenCV does not provide easy access to many of the
+    properties available with sci-kit image, such as the image in
+    the bounding box and solidity (a measure related to convexity).
     """
     # labels frame
     frame_labeled = skimage.measure.label(bw_frame)
@@ -977,7 +1001,6 @@ def region_props_skimage(bw_frame, n_frame=-1, width_border=5):
         obj['image'] = props.image 
         # centroid relative to bounding box (bbox) as (row, col)
         obj['local centroid'] = props.local_centroid
-
 
         # stores object
         objects += [obj]

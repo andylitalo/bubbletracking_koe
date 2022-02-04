@@ -16,5 +16,6 @@ pix_per_um = {'chronos' :
                 10 : 3.54}, # see get_pixel_width_from_calibration_slide.py
             'photron' :
                 {4: 1/2.29, 
-                10 : 1.09},
+                10 : 1.09,
+                20 : 2.18},
 }
