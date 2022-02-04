@@ -33,6 +33,7 @@ Data are saved as a pickle file.
  - `matplotlib` (`pip install matplotlib`)
  - `pandas` (`pip install pandas` or see extensive guide [here](https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html)) 
  - `skimage` (`pip install scikit-image`)
+ - `sklearn` (`pip install scikit-learn`)
  - `bokeh` (`pip install bokeh`)
 
 ## Running Bubble Tracking
