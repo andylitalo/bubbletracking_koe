@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 20 16:52:03 2015
-@author: John
+@author: John M. Frostad with additions by Andy Ylitalo
 """
 
+# standard packages
+import os
+
+# 3rd party packages
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
 import ctypes
-
+import tkinter as tk
 from tkinter import messagebox
 
 # imports custom libraries
@@ -304,6 +308,7 @@ def get_polygonal_mask_data(im, mask_file, check=False, save=True,
     Shows user masks overlayed on given image and asks through a dialog box
     if they are acceptable. Returns True for 'yes' and False for 'no'.
     """
+    maskdata = None
     try:
         with open(mask_file, 'rb') as f:
             mask_data = pkl.load(f)
@@ -322,8 +327,16 @@ def get_polygonal_mask_data(im, mask_file, check=False, save=True,
         plt.axis('off')
 
         # ask if user wishes to keep current mask (header, question)
+        # Tkinter automatically populates the first window opened by it;
+        # if this window has been closed (e.g. after creating mask), 
+        # populating it raises an error.
+        # To avoid this error, we create a new window
+        # see: https://stackoverflow.com/questions/65147273/tkinter-messagebox-fails-when-the-root-window-is-closed
+        root = tk.Tk()  # hide the root window
+        root.withdraw()
         response = messagebox.askyesno('User Input Required', 'Do you wish to keep' + \
-                            ' the current mask?')
+                            ' the current mask?', master=root)
+
         if response:
             plt.close()
             return mask_data
