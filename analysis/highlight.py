@@ -77,15 +77,17 @@ def bubble_label_color(bubble, f, std_color=cfg.white,
     """
     # checks for errors
     is_bubble = bubble.get_prop('inner stream', f) and \
-                    bubble.get_prop('solid', f) and \
-                    bubble.get_prop('circular', f) and \
                     bubble.get_prop('oriented', f) and \
                     bubble.get_prop('consecutive', f) and \
                     bubble.get_prop('exited', f) and \
-                    bubble.get_prop('growing', f)
+                    bubble.get_prop('centered', f)
+                    # bubble.get_prop('growing', f) and \
+                    # bubble.get_prop('circular', f) and \
+                    # bubble.get_prop('solid', f) and \
 
     if not is_bubble:
         color = error_color 
+
     else:
         # text of number ID is black if on the border of the image, white o/w
         on_border = bubble.get_prop('on border', f)
