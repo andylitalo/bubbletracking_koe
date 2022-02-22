@@ -381,14 +381,15 @@ class Bubble(TrackedObject):
                         'average flow speed [m/s]' : None, 
                         'solid' : None, 'circular' : None, 'oriented' : None,
                         'consecutive' : None, 'inner stream' : None,
-                        'exited' : None, 'growing' : None
+                        'entered' : None, 'exited' : None, 
+                        'growing' : None, 'centered' : None
                         })
 
        
     ###### MUTATORS ########
     def classify(self,  max_aspect_ratio=10, min_solidity=0.85,
             min_size=50, max_orientation=np.pi/8, circle_aspect_ratio=1.1,
-            n_consec=3):
+            n_consec=3, center_frac=0.25):
         """
         Classifies bubble as inner or outer stream based on velocity cutoff.
         N.B.: If there is no inner stream (inner stream flow rate Q_i = 0),
@@ -426,6 +427,11 @@ class Bubble(TrackedObject):
             has a solidity of 0.917, so a bubble with a slight artifact will
             still have a sufficient solidity (> 0.9) to be classified as a bubble
             at this size.
+
+        center_frac : float, optional
+            Fraction of inner stream on either side of the center line (approximated 
+            by the row that is half of the frame height) considered to be part of the
+            center.
 
         Returns nothing.
         """
@@ -465,10 +471,16 @@ class Bubble(TrackedObject):
         else:
             self.props_proc['consecutive'] = np.zeros([len(self.get_props('frame'))])
 
-        # flowing backwards
+        # flowing fast enough to be part of the inner stream
         self.props_proc['inner stream'] = np.asarray(self.get_props('flow speed [m/s]')) > \
                                                                  self.get_metadata('v_interf')
 
+        # is object well centered? must be within certain fraction of center of frame height
+        c_row = np.asarray([c_row for c_row, _ in self.get_props('centroid')])
+        h_frame = self.get_metadata('frame_dim')[0]
+        h_center = float(h_frame) / 2.0
+        self.props_proc['centered'] = np.asarray(np.logical_and(c_row > h_center - h_frame*center_frac,
+                                                                c_row < h_center + h_frame*center_frac))
         ### Checks if object entered/exited frame or appeared/disappeared
 
         # farthest right column TODO -- determine coordinate of bbox from flow dir
