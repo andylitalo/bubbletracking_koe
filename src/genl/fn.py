@@ -9,6 +9,7 @@ fn.py contains useful, short, and often-used functions.
 import os
 import cv2
 import numpy as np
+import re
 
 
 def bool_2_uint8(bool_arr):
@@ -100,15 +101,17 @@ def parse_vid_folder(vid_folder):
     p_sat_units : string
         Units of p_sat
     """
-    # first extracts direct folder for video if others included in path
-    vid_folder_list = split_folders(vid_folder)
-    vid_folder = vid_folder_list[-1]
-    raw = vid_folder.strip(os.path.sep)
-    date, p_sat_str = raw.split('_')
-    p_sat = int(''.join([c for c in p_sat_str if c.isdigit()]))
-    p_sat_units = ''.join([c for c in p_sat_str if not c.isdigit()])
+    result = re.search('20[0-9]{6}_[0-9]{2,}[a-zA-z]{3,}', vid_folder)
+    if result is None:
+        return None, None, None
+    else:
+        vid_str = result.group()
+        date = re.search('^20[0-9]{6}', vid_str).group()
+        p_sat = int(re.search('_[0-9]{2,}', vid_str).group()[1:])
+        units = re.search('[a-zA-z]{3,}', vid_str).group()
 
-    return date, p_sat, p_sat_units
+        return date, p_sat, units
+
 
 def parse_vid_path(vid_path):
     """
@@ -135,24 +138,20 @@ def parse_vid_path(vid_path):
     i_start = vid_path.rfind(os.path.sep)
     vid_file = vid_path[i_start+1:]
     # cuts out extension and splits by underscores
-    tokens = vid_file[:-4].split('_')
-    prefix = ''
-
-    for i, token in enumerate(tokens):
-        if token.isnumeric():
-            break
-        elif i != 0:
-            prefix += '_'
-        prefix += token
+    match = re.search('_[0-9]{4,5}_[0-9]{3}(-[0-9]{1})?_[0-9]{3}_[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]+', vid_file)
+    span = match.span()
+    prefix = vid_file[:span[0]]
+    param_str = match.group()
+    tokens = param_str.split('_')
 
     params = {'prefix' : prefix,
-              'fps' : int(tokens[i]),
-              'exp_time' : read_dash_decimal(tokens[i+1]),
-              'Q_i' : read_dash_decimal(tokens[i+2]),
-              'Q_o' : int(tokens[i+3]),
-              'd' : int(tokens[i+4]),
-              'mag' : int(tokens[i+5]),
-              'num' : int(tokens[i+6])}
+              'fps' : int(tokens[1]),
+              'exp_time' : read_dash_decimal(tokens[2]),
+              'Q_i' : read_dash_decimal(tokens[3]),
+              'Q_o' : int(tokens[4]),
+              'd' : int(tokens[5]),
+              'mag' : int(tokens[6]),
+              'num' : int(tokens[7])}
 
     return params
 
@@ -229,7 +228,6 @@ def remove_nans(arr):
 def split_folders(path):
     """Suggested on http://nicks-liquid-soapbox.blogspot.com/2011/03/
     splitting-path-to-list-in-python.html"""
-    path_norm = os.path.normpath(path)
     folder_list_padded = path.split(os.path.sep)
     folder_list = [folder for folder in folder_list_padded if folder != '']
 
