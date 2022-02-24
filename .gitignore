@@ -12,3 +12,5 @@ demos/
 *.tif
 *.csv
 *.pptx
+*.svg
+*.pdf
