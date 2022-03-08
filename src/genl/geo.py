@@ -40,6 +40,18 @@ def calc_comps(vec, axis):
     
     return comp, off_axis
     
+
+def calc_col_diff(bbox):
+    """Calculates difference in columns given bounding box."""
+    _, col_min, _, col_max = bbox
+    return col_max - col_min
+
+
+def calc_row_diff(bbox):
+    """Calculates difference in rows given bounding box."""
+    row_min, _, row_max, _ = bbox
+    return row_max - row_min
+
     
 def fit_circle(rows, cols, center_estimate=(0,0)):
     """
