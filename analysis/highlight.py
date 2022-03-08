@@ -25,6 +25,7 @@ sys.path.append('../src/') # adds custom library directory to path
 import cvimproc.basic as basic
 import cvimproc.improc as improc
 import genl.fn as fn
+import genl.geo as geo
 import genl.readin as readin
 import genl.main_helper as mh
 
@@ -76,11 +77,11 @@ def bubble_label_color(bubble, f, std_color=cfg.white,
         Color of label (RGB)
     """
     # checks for errors
-    is_bubble = bubble.get_prop('inner stream', f) and \
+    is_bubble = (bubble.get_prop('inner stream', f) or bubble.get_prop('on border', f)) and \
                     bubble.get_prop('oriented', f) and \
                     bubble.get_prop('consecutive', f) and \
-                    bubble.get_prop('exited', f) and \
-                    bubble.get_prop('centered', f)
+                    bubble.get_prop('centered', f) and \
+                    bubble.get_prop('exited', f)
                     # bubble.get_prop('growing', f) and \
                     # bubble.get_prop('circular', f) and \
                     # bubble.get_prop('solid', f) and \
