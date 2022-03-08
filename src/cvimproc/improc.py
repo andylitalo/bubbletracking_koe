@@ -5,6 +5,7 @@ only OpenCV.
 
 TODO: move OpenCV methods to an archive since they were transferred
 to C++ in CvVidProc.
+TODO: improve `assign_obj` to keep same assignment for bubbles as long as frame
 """
 
 # imports standard libraries
@@ -304,6 +305,13 @@ def bubble_distance_v(bubble1, bubble2, axis, row_lo, row_hi,
     dt = 1/fps
     # expected distance along projected axis [pix]
     comp_expected = v*dt
+
+    # removes upstream penalty if bubble is on border and longer than stream
+    # width; in this case, bubbles may appear to move or move backward
+    if (bubble1['on border'] or bubble2['on border']) and \
+        (bubble1['bbox'][3] - bubble1['bbox'][1] > (row_hi - row_lo)) and \
+        (bubble2['bbox'][3] - bubble2['bbox'][1] > (row_hi - row_lo)):
+        upstream_penalty = 0
     
 
     # adds huge penalty if second bubble is upstream of first bubble and a
