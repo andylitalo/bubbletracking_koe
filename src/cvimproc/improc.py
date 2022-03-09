@@ -987,7 +987,7 @@ def region_props_skimage(bw_frame, n_frame=-1, width_border=5):
     objects = []
 
     # loads properties for each object in frame
-    for i, props in enumerate(region_props):
+    for props in region_props:
         # creates dictionary of bubble properties for one frame
         obj = {}
         
